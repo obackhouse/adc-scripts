@@ -1,0 +1,81 @@
+'''
+ADC(2) for ionization potentials for restricted references.
+'''
+
+import numpy as np
+from adc2 import utils, mpi_helper
+from pyscf import lib
+
+
+def get_matvec(helper):
+    t2, ovov, ooov, eija = helper.t2, helper.ovov, helper.ooov, helper.eija
+    nocc, nvir = helper.nocc, helper.nvir
+
+    p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
+    t2_block = t2.reshape(nocc, -1)[:,p0:p1]
+    ovov_as_block  = ovov.reshape(nocc, -1)[:,p0:p1] * 2.0
+    ovov_as_block -= ovov.swapaxes(1,3).reshape(nocc, -1)[:,p0:p1]
+
+    q0, q1 = mpi_helper.distr_blocks(nocc**2*nvir)
+    ooov_block = ooov.reshape(nocc, -1)[:,q0:q1]
+    ooov_as_block  = ooov_block * 2.0
+    ooov_as_block -= ooov.swapaxes(1,2).reshape(nocc, -1)[:,q0:q1]
+    eija_block = eija.ravel()[q0:q1]
+
+    h1  = np.dot(t2_block, ovov_as_block.T) * 0.5
+
+    mpi_helper.barrier()
+    mpi_helper.allreduce_inplace(h1)
+
+    h1 += h1.T
+    h1 += np.diag(helper.eo)
+
+    def matvec(y):
+        y = np.asarray(y, order='C')
+        r = np.zeros_like(y)
+
+        yi = y[:nocc]
+        ri = r[:nocc]
+        yija = y[nocc:]
+        rija = r[nocc:]
+
+        yija_block = yija[q0:q1]
+        rija_block = rija[q0:q1]
+
+        ri += np.dot(ooov_block, yija_block)
+        rija_block += np.dot(yi, ooov_as_block)
+        rija_block += eija_block * yija_block
+
+        mpi_helper.barrier()
+        mpi_helper.allreduce_inplace(ri)
+        mpi_helper.allreduce_inplace(rija)
+
+        ri += np.dot(h1, yi)
+
+        return r
+
+    diag = np.concatenate([np.diag(h1), eija.ravel()])
+
+    return matvec, diag
+
+def get_guesses(helper, diag, nroots):
+    guesses = np.zeros((nroots, diag.size))
+
+    arg = np.argsort(np.absolute(diag))
+    for root, guess in enumerate(arg[:nroots]):
+        guesses[root,guess] = 1.0
+
+    return list(guesses)
+
+class ADCHelper(utils._ADCHelper):
+    def build(self):
+        self.ovov = self.ao2mo(self.co, self.cv, self.co, self.cv)
+        self.ooov = self.ao2mo(self.co, self.co, self.co, self.cv)
+
+        self.eija = lib.direct_sum('i,j,a->ija', self.eo, self.eo, -self.ev)
+
+        eiajb = lib.direct_sum('i,a,j,b->iajb', self.eo, -self.ev, self.eo, -self.ev)
+        self.t2 = self.ovov / eiajb
+
+    get_matvec = get_matvec
+    get_guesses = get_guesses
