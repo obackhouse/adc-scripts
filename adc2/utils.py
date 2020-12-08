@@ -11,7 +11,9 @@ einsum = lib.einsum
 #einsum = functools.partial(np.einsum, optimize=True)
 
 def nested_apply(item, func, ndim=1):
-    peek_in = item[(0,) * ndim]
+    peek_in = item
+    for i in range(ndim):
+        peek_in = peek_in[0]
     if isinstance(peek_in, (tuple, list, np.ndarray)):
         return tuple(nested_apply(x, func) for x in item)
     else:
@@ -31,16 +33,10 @@ class _ADCHelper:
         self.o = nested_apply(self.mf.mo_occ, lambda x: x > 0)
         self.v = nested_apply(self.mf.mo_occ, lambda x: x == 0)
 
-        self.eo = nested_apply(self.e, lambda x: x[self.o])
-        self.ev = nested_apply(self.e, lambda x: x[self.v])
-
-        self.co = nested_apply(self.c, lambda x: x[:,self.o], ndim=2)
-        self.cv = nested_apply(self.c, lambda x: x[:,self.v], ndim=2)
-
     def swap_ov(self):
         self.o, self.v = self.v, self.o
-        self.eo, self.ev = self.ev, self.eo
-        self.co, self.cv = self.cv, self.co
+        #self.eo, self.ev = self.ev, self.eo
+        #self.co, self.cv = self.cv, self.co
 
     def ao2mo(self, *coeffs):
         if not hasattr(self.mf, 'with_df'):

@@ -69,6 +69,9 @@ def get_guesses(helper, diag, nroots):
 
 class ADCHelper(utils._ADCHelper):
     def build(self):
+        self.eo, self.ev = self.e[self.o], self.e[self.v]
+        self.co, self.cv = self.c[:,self.o], self.c[:,self.v]
+
         self.ovov = self.ao2mo(self.co, self.cv, self.co, self.cv)
         self.ooov = self.ao2mo(self.co, self.co, self.co, self.cv)
 

@@ -60,6 +60,9 @@ def get_matvec(helper):
 
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):
+        self.eo, self.ev = self.e[self.o], self.e[self.v]
+        self.co, self.cv = self.c[:,self.o], self.c[:,self.v]
+
         self.Lov = self.ao2mo(self.co, self.cv)
         self.Loo = self.ao2mo(self.co, self.co)
 
