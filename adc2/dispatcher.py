@@ -4,9 +4,7 @@ Dispatcher for ADC(2) methods.
 
 import numpy as np
 from adc2 import utils
-from adc2 import ip_radc2, ea_radc2
-from adc2 import ip_df_radc2, ea_df_radc2
-from adc2 import ip_kradc2, ea_kradc2
+from adc2.methods import *
 from pyscf import lib, scf
 
 
@@ -28,7 +26,7 @@ def load_helper(mf, which='ip'):
 
     return module.ADCHelper
 
-def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False):
+def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
     ''' Runs the ADC(2) method.
 
     Arguments:
@@ -42,6 +40,8 @@ def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=Fa
             Convergence tolerance for Davidson method.
         do_mp2 : bool
             Whether to compute the MP2 energy.
+        koopmans : bool
+            Target only quasiparticle-like states
 
     Returns:
         e : ndarray
@@ -60,7 +60,7 @@ def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=Fa
     helper = ADCHelper(mf)
 
     matvec, diag = helper.get_matvec()
-    guesses = helper.get_guesses(diag, nroots)
+    guesses = helper.get_guesses(diag, nroots, koopmans=koopmans)
     kwargs = dict(tol=tol, nroots=nroots, pick=pick, max_cycle=maxiter, max_space=maxspace)
 
     #e, v = lib.davidson_nosym(matvec, guesses, diag, **kwargs)
@@ -77,7 +77,7 @@ def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=Fa
     else:
         return e, v
 
-def _run_pbc(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False):
+def _run_pbc(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
     ADCHelper = load_helper(mf, which=which)
     helper = ADCHelper(mf)
 
@@ -87,7 +87,7 @@ def _run_pbc(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_m
 
     for ki in range(helper.nkpts):
         matvec, diag = helper.get_matvec(ki)
-        guesses = helper.get_guesses(diag, nroots)
+        guesses = helper.get_guesses(diag, nroots, koopmans=koopmans)
         kwargs = dict(tol=tol, nroots=nroots, pick=pick, max_cycle=maxiter, max_space=maxspace)
 
         #e, v = lib.davidson_nosym(matvec, guesses, diag, **kwargs)

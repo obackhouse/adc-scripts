@@ -58,10 +58,15 @@ def get_matvec(helper):
 
     return matvec, diag
 
-def get_guesses(helper, diag, nroots):
+def get_guesses(helper, diag, nroots, koopmans=False):
     guesses = np.zeros((nroots, diag.size))
 
-    arg = np.argsort(np.absolute(diag))
+    if koopmans:
+        arg = np.argsort(np.absolute(helper.eo))
+        nroots = min(nroots, helper.nocc)
+    else:
+        arg = np.argsort(np.absolute(diag))
+
     for root, guess in enumerate(arg[:nroots]):
         guesses[root,guess] = 1.0
 
