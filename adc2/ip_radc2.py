@@ -62,7 +62,7 @@ def get_guesses(helper, diag, nroots, koopmans=False):
     guesses = np.zeros((nroots, diag.size))
 
     if koopmans:
-        arg = np.argsort(np.absolute(helper.eo))
+        arg = np.argsort(np.absolute(diag[:helper.nocc]))
         nroots = min(nroots, helper.nocc)
     else:
         arg = np.argsort(np.absolute(diag))

@@ -61,6 +61,20 @@ def get_matvec(helper, ki):
 
     return matvec, diag
 
+def get_guesses(helper, ki, diag, nroots, koopmans=False):
+    guesses = np.zeros((nroots, diag.size), dtype=diag.dtype)
+
+    if koopmans:
+        arg = np.argsort(np.absolute(diag[:helper.nocc[ki]]))
+        nroots = min(nroots, helper.nocc[ki])
+    else:
+        arg = np.argsort(np.absolute(diag))
+
+    for root, guess in enumerate(arg[:nroots]):
+        guesses[root,guess] = 1.0
+
+    return list(guesses)
+
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):
         nmo_per_kpt = [x.size for x in self.o]
@@ -135,3 +149,4 @@ class ADCHelper(ip_radc2.ADCHelper):
         return self.t2.dtype
 
     get_matvec = get_matvec
+    get_guesses = get_guesses
