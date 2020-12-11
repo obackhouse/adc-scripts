@@ -21,8 +21,8 @@ class KnownValues(unittest.TestCase):
         self.assertAlmostEqual(e[0],   0.14962281, 7) 
         self.assertAlmostEqual(e[1],   0.22781683, 7) 
         self.assertAlmostEqual(e[2],   0.41120578, 7) 
-        self.assertAlmostEqual(e[3],   0.54164835, 7) 
-        self.assertAlmostEqual(e[4],   0.59824360, 7)
+        self.assertAlmostEqual(e[3],   0.45801734, 7) 
+        self.assertAlmostEqual(e[4],   0.56211438, 7)
 
 
 if __name__ == '__main__':

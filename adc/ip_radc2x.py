@@ -54,28 +54,17 @@ def get_matvec(helper):
         ri += np.dot(h1, yi)
 
         yija = yija.reshape(nocc, nocc, nvir)
-        rija -= utils.einsum('kijl,ila->kja', oooo, yija).ravel() * sign * 0.5
-        rija -= utils.einsum('klji,lia->kja', oooo, yija).ravel() * sign * 0.5
-                                                                           
-        rija += utils.einsum('klba,ljb->kja', oovv, yija).ravel() * sign * 0.5
-                                                                           
-        rija += utils.einsum('jalb,lkb->kja', ovov, yija).ravel() * sign * 0.5
-        rija -= utils.einsum('jalb,klb->kja', ovov, yija).ravel() * sign * 0.5
-        rija += utils.einsum('jlba,klb->kja', oovv, yija).ravel() * sign * 0.5
-        rija -= utils.einsum('jalb,klb->kja', ovov, yija).ravel() * sign * 0.5
-                                                                           
-        rija += utils.einsum('kiba,ijb->kja', oovv, yija).ravel() * sign * 0.5
-                                                                           
-        rija += utils.einsum('jiba,kib->kja', oovv, yija).ravel() * sign * 0.5
-        rija -= utils.einsum('jaib,kib->kja', ovov, yija).ravel() * sign * 0.5
-        rija -= utils.einsum('jaib,kib->kja', ovov, yija).ravel() * sign * 0.5
-        rija += utils.einsum('jaib,ikb->kja', ovov, yija).ravel() * sign * 0.5
+        yija_as = 2.0 * yija - yija.swapaxes(0,1)
+
+        rija -= utils.einsum('ikjl,kla->ija', oooo, yija).ravel()    * sign
+        rija -= utils.einsum('jalb,ilb->ija', ovov, yija_as).ravel() * sign
+        rija += utils.einsum('ilba,ljb->ija', oovv, yija).ravel()    * sign
+        rija += utils.einsum('jlba,ilb->ija', oovv, yija).ravel()    * sign
 
         return r
 
     diag = np.concatenate([np.diag(h1), eija.ravel()])
     diag_ija = diag[nocc:]
-    return matvec, diag
 
     p_oooo = oooo.swapaxes(1,2).reshape(nocc*nocc, nocc*nocc)
     p_ovov = oovv.swapaxes(1,2).reshape(nocc*nvir, nocc*nvir)
@@ -83,16 +72,16 @@ def get_matvec(helper):
     tmp  = np.zeros((nvir, nocc*nocc))
     tmp += np.diag(p_oooo)[None]
     tmp  = np.transpose(tmp)
-    diag_ija -= tmp.ravel()
+    diag_ija -= tmp.ravel() * sign
 
     tmp  = np.zeros((nocc, nocc, nvir))
     tmp += np.diag(p_ovov).reshape(-1, nocc, nvir)
-    diag_ija += tmp.ravel()
+    diag_ija += tmp.ravel() * sign
 
     tmp  = np.zeros((nocc, nocc, nvir))
     tmp += np.diag(p_ovov).reshape(-1, nocc, nvir)
     tmp  = tmp.swapaxes(0,1)
-    diag_ija += tmp.ravel()
+    diag_ija += tmp.ravel() * sign
 
     return matvec, diag
 

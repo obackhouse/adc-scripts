@@ -20,9 +20,9 @@ class KnownValues(unittest.TestCase):
         self.assertAlmostEqual(e_mp2, -0.20905685, 7)
         self.assertAlmostEqual(e[0],   0.40478204, 7) 
         self.assertAlmostEqual(e[1],   0.51862959, 7) 
-        self.assertAlmostEqual(e[2],   0.61368597, 7) 
-        self.assertAlmostEqual(e[3],   1.07322538, 7) 
-        self.assertAlmostEqual(e[4],   1.12946843, 7)
+        self.assertAlmostEqual(e[2],   0.61368598, 7) 
+        self.assertAlmostEqual(e[3],   1.09082164, 7) 
+        self.assertAlmostEqual(e[4],   1.14255326, 7)
 
 
 if __name__ == '__main__':
