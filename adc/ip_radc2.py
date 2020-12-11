@@ -3,12 +3,12 @@ ADC(2) for ionization potentials for restricted references.
 '''
 
 import numpy as np
-from adc2 import utils, mpi_helper
+from adc import utils, mpi_helper
 from pyscf import lib
 
 
 def get_matvec(helper):
-    t2, ovov, ooov, eija = helper.t2, helper.ovov, helper.ooov, helper.eija
+    t2, ovov, ooov, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
 
     p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
@@ -84,6 +84,8 @@ class ADCHelper(utils._ADCHelper):
 
         eiajb = lib.direct_sum('i,a,j,b->iajb', self.eo, -self.ev, self.eo, -self.ev)
         self.t2 = self.ovov / eiajb
+
+        self._to_unpack = ['t2', 'ovov', 'ooov', 'eija']
 
     get_matvec = get_matvec
     get_guesses = get_guesses

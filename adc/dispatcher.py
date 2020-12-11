@@ -1,10 +1,10 @@
 '''
-Dispatcher for ADC(2) methods.
+Dispatcher for ADC methods.
 '''
 
 import numpy as np
-from adc2 import utils
-from adc2.methods import *
+from adc import utils
+from adc.methods import *
 from pyscf import lib, scf
 
 
@@ -26,11 +26,11 @@ def get_picker(koopmans=False, real_system=False, guess=None):
 
     return pick
 
-def load_helper(mf, which='ip'):
+def load_helper(mf, method='2', which='ip'):
     hf_type = 'r' if isinstance(mf, scf.hf.RHF) else 'u'
     periodicity = 'k' if hasattr(mf, 'kpts') else ''
     integral_type = 'df_' if hasattr(mf, 'with_df') and periodicity == '' else ''
-    method_name = '%s_%s%s%sadc2' % (which, integral_type, periodicity, hf_type)
+    method_name = '%s_%s%s%sadc%s' % (which, integral_type, periodicity, hf_type, method)
 
     try:
         module = globals()[method_name]
@@ -39,12 +39,17 @@ def load_helper(mf, which='ip'):
 
     return module.ADCHelper
 
-def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
+def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
     ''' Runs the ADC(2) method.
 
     Arguments:
         mf : scf.HF
             Mean-field method from pyscf, must be converged.
+        helper : ADCHelper
+            Specify the ADCHelper class, if None then it is handled
+            automatically by the attributes mf and which.
+        method : str
+            One of '2', '2x', '3'
         which : str
             One of 'ip', 'ea' or 'ee'.
         nroots : int
@@ -67,10 +72,12 @@ def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=Fa
     '''
 
     if hasattr(mf, 'kpts'):
-        return _run_pbc(mf, which, nroots, tol, maxiter, maxspace, do_mp2, koopmans)
+        return _run_pbc(mf, helper, method, which, nroots, tol, maxiter, maxspace, do_mp2, koopmans)
 
-    ADCHelper = load_helper(mf, which=which)
-    helper = ADCHelper(mf)
+    if helper is None:
+        helper = load_helper(mf, method=method, which=which)
+    if callable(helper):
+        helper = helper(mf)
 
     matvec, diag = helper.get_matvec()
     guesses = helper.get_guesses(diag, nroots, koopmans=koopmans)
@@ -91,9 +98,11 @@ def run(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=Fa
     else:
         return e, v
 
-def _run_pbc(mf, which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
-    ADCHelper = load_helper(mf, which=which)
-    helper = ADCHelper(mf)
+def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False):
+    if helper is None:
+        helper = load_helper(mf, method=method, which=which)
+    if callable(helper):
+        helper = helper(mf)
 
     es = []
     vs = []

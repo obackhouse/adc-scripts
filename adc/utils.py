@@ -5,7 +5,7 @@ Utility functions.
 import numpy as np
 import functools
 from pyscf import lib, ao2mo
-from adc2 import mpi_helper
+from adc import mpi_helper
 
 einsum = lib.einsum
 #einsum = functools.partial(np.einsum, optimize=True)
@@ -69,6 +69,9 @@ class _ADCHelper:
 
     def get_guesses(self):
         raise AttributeError
+
+    def unpack(self):
+        return tuple([getattr(self, key) for key in self._to_unpack])
 
     @property
     def nocc(self):

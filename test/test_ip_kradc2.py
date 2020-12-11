@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from pyscf.pbc import gto, scf, tools
-from adc2 import run
+from adc import run
 
 
 class KnownValues(unittest.TestCase):

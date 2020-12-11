@@ -3,12 +3,12 @@ ADC(2) for ionization potentials for restricted references with density fitting.
 '''
 
 import numpy as np
-from adc2 import utils, mpi_helper, ip_radc2
+from adc import utils, mpi_helper, ip_radc2
 from pyscf import lib
 
 
 def get_matvec(helper):
-    Lov, Loo, eia, eija = helper.Lov, helper.Loo, helper.eia, helper.eija
+    Lov, Loo, eia, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     eija = eija.reshape(nocc, -1)
 
@@ -68,6 +68,8 @@ class ADCHelper(ip_radc2.ADCHelper):
 
         self.eia = lib.direct_sum('i,a->ia', self.eo, -self.ev)
         self.eija = lib.direct_sum('i,ja->ija', self.eo, self.eia)
+
+        self._to_unpack = ['Lov', 'Loo', 'eia', 'eija']
 
     def mp2(self):
         eia, Lov = self.eia, self.Lov

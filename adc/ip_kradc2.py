@@ -4,7 +4,7 @@ ADC(2) for ionization potentials for restriced periodic (k-space) references.
 
 import numpy as np
 import itertools
-from adc2 import utils, mpi_helper, ip_radc2
+from adc import utils, mpi_helper, ip_radc2
 from pyscf import lib
 from pyscf.pbc import tools
 from pyscf.pbc.mp.kmp2 import _padding_k_idx
@@ -13,7 +13,7 @@ from pyscf.pbc.mp.kmp2 import _padding_k_idx
 
 
 def get_matvec(helper, ki):
-    t2, ovov, ooov, eija = helper.t2, helper.ovov, helper.ooov, helper.eija
+    t2, ovov, ooov, eija = helper.unpack()
     nocc, nvir = max(helper.nocc), max(helper.nvir)
     nkpts = helper.nkpts
 
@@ -117,6 +117,8 @@ class ADCHelper(ip_radc2.ADCHelper):
         mpi_helper.allreduce_inplace(self.ooov)
         mpi_helper.allreduce_inplace(self.eija)
         mpi_helper.allreduce_inplace(self.t2)
+
+        self._to_unpack = ['t2', 'ovov', 'ooov', 'eija']
 
     def ao2mo(self, kpts, *coeffs):
         eri = self.mf.with_df.ao2mo(coeffs, kpts=self.mf.kpts[kpts], compact=False)

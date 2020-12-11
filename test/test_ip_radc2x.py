@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from pyscf import gto, scf
-from adc import run
+from adc import run, methods
 
 
 class KnownValues(unittest.TestCase):
@@ -15,16 +15,16 @@ class KnownValues(unittest.TestCase):
     def tearDownClass(cls):
         del cls.mf
 
-    def test_ip_radc2(self):
-        e, v, e_mp2 = run(self.mf, nroots=5, do_mp2=True)
+    def test_ip_radc2x(self):
+        e, v, e_mp2 = run(self.mf, method='2x', nroots=5, do_mp2=True)
         self.assertAlmostEqual(e_mp2, -0.20905685, 7)
-        self.assertAlmostEqual(e[0],   0.39840577, 7) 
-        self.assertAlmostEqual(e[1],   0.51386759, 7) 
-        self.assertAlmostEqual(e[2],   0.61060915, 7) 
-        self.assertAlmostEqual(e[3],   1.15103064, 7) 
-        self.assertAlmostEqual(e[4],   1.19289418, 7)
+        self.assertAlmostEqual(e[0],   0.40478204, 7) 
+        self.assertAlmostEqual(e[1],   0.51862959, 7) 
+        self.assertAlmostEqual(e[2],   0.61368597, 7) 
+        self.assertAlmostEqual(e[3],   1.07322538, 7) 
+        self.assertAlmostEqual(e[4],   1.12946843, 7)
 
 
 if __name__ == '__main__':
-    print('IP-RADC(2) tests')
+    print('IP-RADC(2)-x tests')
     unittest.main()

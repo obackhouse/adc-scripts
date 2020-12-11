@@ -6,5 +6,5 @@ __all__ = []
 for f in files:
     if 'adc' in f and f[-3:] == '.py':
         name = f[:-3]
-        globals()[name] = importlib.import_module('adc2.%s' % name)
+        globals()[name] = importlib.import_module('adc.%s' % name)
         __all__.append(name)
