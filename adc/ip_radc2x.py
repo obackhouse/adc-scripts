@@ -64,24 +64,11 @@ def get_matvec(helper):
         return r
 
     diag = np.concatenate([np.diag(h1), eija.ravel()])
-    diag_ija = diag[nocc:]
 
-    p_oooo = oooo.swapaxes(1,2).reshape(nocc*nocc, nocc*nocc)
-    p_ovov = oovv.swapaxes(1,2).reshape(nocc*nvir, nocc*nvir)
-
-    tmp  = np.zeros((nvir, nocc*nocc))
-    tmp += np.diag(p_oooo)[None]
-    tmp  = np.transpose(tmp)
-    diag_ija -= tmp.ravel() * sign
-
-    tmp  = np.zeros((nocc, nocc, nvir))
-    tmp += np.diag(p_ovov).reshape(-1, nocc, nvir)
-    diag_ija += tmp.ravel() * sign
-
-    tmp  = np.zeros((nocc, nocc, nvir))
-    tmp += np.diag(p_ovov).reshape(-1, nocc, nvir)
-    tmp  = tmp.swapaxes(0,1)
-    diag_ija += tmp.ravel() * sign
+    diag_ija = diag[nocc:].reshape(nocc, nocc, nvir)
+    diag_ija -= utils.einsum('iijj->ij', oooo)[:,:,None] * sign
+    diag_ija += utils.einsum('jjaa->ja', oovv)[None,:,:] * sign
+    diag_ija += utils.einsum('iiaa->ia', oovv)[:,None,:] * sign
 
     return matvec, diag
 
