@@ -1,14 +1,10 @@
-from adc2 import ip_radc2
-from adc2 import ea_radc2
+import importlib, os
 
-from adc2 import ip_df_radc2
-from adc2 import ea_df_radc2
+files = os.listdir(os.path.dirname(os.path.realpath(__file__)))
+__all__ = []
 
-from adc2 import ip_kradc2
-from adc2 import ea_kradc2
-
-__all__ = [
-    'ip_radc2',    'ea_radc2',
-    'ip_df_radc2', 'ea_df_radc2',
-    'ip_kradc2',   'ea_kradc2',
-]
+for f in files:
+    if 'adc' in f and '.py' in f:
+        name = f[:-3]
+        globals()[name] = importlib.import_module('adc2.%s' % name)
+        __all__.append(name)
