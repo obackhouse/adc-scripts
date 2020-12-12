@@ -47,28 +47,34 @@ def get_matvec(helper):
         rija_block += np.dot(yi, ooov_block)
         rija_block += eija_block * yija_block
 
+        #TODO: really not a fan of this... mixing and matching MPI strategies
+        p0, p1 = mpi_helper.distr_blocks(nocc)
+        yija = yija.reshape(nocc, nocc, nvir)
+        yija_as = 2.0 * yija - yija.swapaxes(0,1)
+        rija_block = rija.reshape(nocc, nocc, nvir)[p0:p1]
+
+        rija_block -= utils.einsum('ikjl,kla->ija', oooo[p0:p1], yija) * sign
+        rija_block += utils.einsum('ilba,ljb->ija', oovv[p0:p1], yija) * sign
+        rija_block -= utils.einsum('jalb,ilb->ija', ovov, yija_as[p0:p1]) * sign
+        rija_block += utils.einsum('jlba,ilb->ija', oovv, yija[p0:p1]) * sign
+
         mpi_helper.barrier()
         mpi_helper.allreduce_inplace(ri)
         mpi_helper.allreduce_inplace(rija)
 
         ri += np.dot(h1, yi)
 
-        yija = yija.reshape(nocc, nocc, nvir)
-        yija_as = 2.0 * yija - yija.swapaxes(0,1)
-
-        rija -= utils.einsum('ikjl,kla->ija', oooo, yija).ravel()    * sign
-        rija -= utils.einsum('jalb,ilb->ija', ovov, yija_as).ravel() * sign
-        rija += utils.einsum('ilba,ljb->ija', oovv, yija).ravel()    * sign
-        rija += utils.einsum('jlba,ilb->ija', oovv, yija).ravel()    * sign
-
         return r
 
     diag = np.concatenate([np.diag(h1), eija.ravel()])
 
-    diag_ija = diag[nocc:].reshape(nocc, nocc, nvir)
-    diag_ija -= utils.einsum('iijj->ij', oooo)[:,:,None] * sign
-    diag_ija += utils.einsum('jjaa->ja', oovv)[None,:,:] * sign
-    diag_ija += utils.einsum('iiaa->ia', oovv)[:,None,:] * sign
+    if helper.guess_high_order:
+        # According to A. Sokolov these might actually make things worse
+        # See https://github.com/pyscf/pyscf/commit/994e325159866bc74319418033db270a6b6a9d57#r45037621
+        diag_ija = diag[nocc:].reshape(nocc, nocc, nvir)
+        diag_ija -= utils.einsum('iijj->ij', oooo)[:,:,None] * sign
+        diag_ija += utils.einsum('jjaa->ja', oovv)[None,:,:] * sign
+        diag_ija += utils.einsum('iiaa->ia', oovv)[:,None,:] * sign
 
     return matvec, diag
 
@@ -87,6 +93,7 @@ class ADCHelper(ip_radc2.ADCHelper):
         eiajb = lib.direct_sum('i,a,j,b->iajb', self.eo, -self.ev, self.eo, -self.ev)
         self.t2 = self.ovov / eiajb
         self.sign = 1
+        self.guess_high_order = True
 
         self._to_unpack = ['t2', 'ovov', 'ooov', 'oooo', 'oovv', 'eija']
 
