@@ -19,6 +19,6 @@ Features (M = MPI, R = Restricted, U = Unrestricted):
 
 | ADC(3) | IP | EA | EE |
 |--------|:--:|:--:|:--:|
-| ERI    |    |    |    |
+| ERI    | R  | R  |    |
 | DF     |    |    |    |
 | PBC    |    |    |    |
