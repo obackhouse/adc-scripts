@@ -41,7 +41,7 @@ def get_matvec(helper, ki):
         yija = y[nocc:].reshape(nkpts, nkpts, -1)
         rija = r[nocc:].reshape(nkpts, nkpts, -1)
 
-        for kj, kk in helper.kpt_loop(nk=2):
+        for kj, kk in mpi_helper.distr_iter(helper.kpt_loop(2)):
             kl = helper.kconserv[ki,kj,kk]
             vk = 2.0 * ooov[ki,kj,kk] - ooov[ki,kk,kj].swapaxes(1,2) # correct?
             vk = vk.reshape(nocc, -1)
