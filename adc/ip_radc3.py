@@ -61,10 +61,10 @@ def get_matvec(helper):
     tmp1 = utils.einsum('iajb,acbd->icjd', t2a, vvvv)
     h1 += utils.einsum('iakb,jakb->ij', t2a, as1(tmp1)) * 0.25
 
-    tmp1 = utils.einsum('iajb,ikjl->kalb', t2, oooo)
+    tmp1 = utils.einsum('iakb,ijkl->jalb', t2, oooo)
     h1 += utils.einsum('iakb,jakb->ij', t2, tmp1)
 
-    tmp1 = utils.einsum('iajb,ikjl->kalb', t2a, oooo)
+    tmp1 = utils.einsum('iakb,ijkl->jalb', t2a, oooo)
     h1 += utils.einsum('iakb,jakb->ij', t2a, as1(tmp1)) * 0.25
 
     h1 += utils.einsum('lakc,lakb,jibc->ij', t2a, t2a, oovv)
