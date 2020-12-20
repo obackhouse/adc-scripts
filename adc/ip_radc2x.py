@@ -24,11 +24,11 @@ def get_matvec(helper):
     eija_block = eija.ravel()[q0:q1]
 
     h1  = np.dot(t2_block, ovov_as_block.T) * 0.5
+    h1 += h1.T
 
     mpi_helper.barrier()
     mpi_helper.allreduce_inplace(h1)
 
-    h1 += h1.T
     h1 += np.diag(helper.eo)
 
     def matvec(y):
