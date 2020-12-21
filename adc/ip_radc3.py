@@ -13,7 +13,7 @@ def as2(x, axis=(1,3)):
     return 2.0 * x - x.swapaxes(*axis)
 
 def get_matvec(helper):
-    t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovoo, ovvv, vvvv, eija = helper.unpack()
+    t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     sign = helper.sign
     t2a = as1(t2)
@@ -25,12 +25,12 @@ def get_matvec(helper):
     h1 += tmp1
     h1 += tmp1.T
 
-    tmp1 = utils.einsum('ld,ldji->ij', t1_2, as2(ovoo, (0,2)))
+    tmp1 = utils.einsum('ld,jild->ij', t1_2, as2(ooov, (0,2)))
     h1 += sign * tmp1
     h1 += sign * tmp1.T
 
-    tmp1  = utils.einsum('iakb,jakb->ij', t2_2_a, as1(ovov)) * 0.5 
-    tmp1 += utils.einsum('iakb,jbka->ij', t2_2, ovov) * 0.5
+    tmp1  = dot_along_tail(t2_2_a, as1(ovov)) * 0.5
+    tmp1 += dot_along_tail(t2_2, ovov.swapaxes(1,3)) * 0.5
     tmp2  = lib.direct_sum('ijb,a->iajb', eija, -helper.ev)
     tmp1 -= utils.einsum('iakb,jakb->ij', as2(t2_2) * tmp2, t2) * 0.5
     h1 += sign * tmp1
@@ -50,8 +50,7 @@ def get_matvec(helper):
     tmp2  = utils.einsum('jalc,klbc->jakb', t2, oovv) * -0.5
     tmp3  = utils.einsum('iakb,jakb->ij', t2, tmp1+tmp2)
     tmp2  = utils.einsum('jalc,klbc->jakb', t2a, oovv) * -0.5
-    tmp1  = as1(tmp1) * 0.5
-    tmp3 += utils.einsum('iakb,jakb->ij', t2a, tmp1+tmp2)
+    tmp3 += utils.einsum('iakb,jakb->ij', t2a, 0.5*as1(tmp1)+tmp2)
     h1 += sign * tmp3
     h1 += sign * tmp3.T
 
@@ -100,22 +99,22 @@ def get_matvec(helper):
 
         tmp1  = utils.einsum('jalb,kja->blk', t2a, as1(yija, (0,1)))
         tmp1 += utils.einsum('jalb,kja->blk', t2, yija)
-        ri   += utils.einsum('blk,lbik->i', tmp1, as1(ovoo, (0,2))) * sign
+        ri   += utils.einsum('blk,iklb->i', tmp1, as1(ooov, (0,2))) * sign
 
         tmp1  = utils.einsum('jalb,kja->blk', t2, as1(yija, (0,1)))
         tmp1 += utils.einsum('jalb,kja->blk', t2a, yija)
-        ri   += utils.einsum('blk,lbik->i', tmp1, ovoo) * sign
+        ri   += utils.einsum('blk,iklb->i', tmp1, ooov) * sign
 
         tmp1  = utils.einsum('jbla,jka->blk', t2, yija)
-        ri   -= utils.einsum('blk,iblk->i', tmp1, ovoo) * sign
+        ri   -= utils.einsum('blk,lkib->i', tmp1, ooov) * sign
 
-        tmp1  = utils.einsum('i,lbik->kbl', yi, as1(ovoo, (0,2)))
+        tmp1  = utils.einsum('i,iklb->kbl', yi, as1(ooov, (0,2)))
         rija += utils.einsum('kbl,jalb->kja', tmp1, t2) * sign
 
-        tmp1  = utils.einsum('i,lbik->kbl', yi, ovoo)
+        tmp1  = utils.einsum('i,iklb->kbl', yi, ooov)
         rija += utils.einsum('kbl,jalb->kja', tmp1, t2a) * sign
 
-        rija -= utils.einsum('i,iblj,kbla->kja', yi, ovoo, t2) * sign
+        rija -= utils.einsum('i,ljib,kbla->kja', yi, ooov, t2) * sign
 
         return r
 
@@ -140,7 +139,6 @@ class ADCHelper(ip_radc2.ADCHelper):
         self.ooov = self.ao2mo(self.co, self.co, self.co, self.cv)
         self.oooo = self.ao2mo(self.co, self.co, self.co, self.co)
         self.oovv = self.ao2mo(self.co, self.co, self.cv, self.cv)
-        self.ovoo = self.ao2mo(self.co, self.cv, self.co, self.co)
         self.ovvv = self.ao2mo(self.co, self.cv, self.cv, self.cv)
         self.vvvv = self.ao2mo(self.cv, self.cv, self.cv, self.cv)
 
@@ -156,8 +154,8 @@ class ADCHelper(ip_radc2.ADCHelper):
         t2a = self.t2 - self.t2.swapaxes(0,2).copy()
         self.t1_2  = utils.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a*0.5)
         self.t1_2 -= utils.einsum('kcad,ickd->ia', self.ovvv, t2a) * 0.5
-        self.t1_2 -= utils.einsum('lcki,kalc->ia', self.ovoo, self.t2+t2a*0.5)
-        self.t1_2 -= utils.einsum('kcli,lakc->ia', self.ovoo, t2a) * 0.5
+        self.t1_2 -= utils.einsum('kilc,kalc->ia', self.ooov, self.t2+t2a*0.5)
+        self.t1_2 -= utils.einsum('likc,lakc->ia', self.ooov, t2a) * 0.5
         self.t1_2 /= eia
 
         self.t2_2  = utils.einsum('ijab->iajb', self._t2_oooo.copy())
@@ -173,6 +171,6 @@ class ADCHelper(ip_radc2.ADCHelper):
         self.sign = 1
         self.guess_high_order = True
 
-        self._to_unpack = ['t1_2', 't2', 't2_2', 'ovov', 'ooov', 'oooo', 'oovv', 'ovoo', 'ovvv', 'vvvv', 'eija']
+        self._to_unpack = ['t1_2', 't2', 't2_2', 'ovov', 'ooov', 'oooo', 'oovv', 'ovvv', 'vvvv', 'eija']
 
     get_matvec = get_matvec
