@@ -16,7 +16,7 @@ class KnownValues(unittest.TestCase):
         del cls.mf
 
     def test_ea_radc2x(self):
-        e, v, e_mp2 = run(self.mf, method='2x', which='ea', nroots=5, do_mp2=True)
+        e, v, e_mp2 = run(self.mf, method='2x', which='ea', nroots=5, tol=1e-12, do_mp2=True)
         self.assertAlmostEqual(e_mp2, -0.20905685, 7)
         self.assertAlmostEqual(e[0],   0.14962281, 7) 
         self.assertAlmostEqual(e[1],   0.22781683, 7) 
