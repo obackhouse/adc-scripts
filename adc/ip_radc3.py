@@ -19,68 +19,56 @@ def get_matvec(helper):
     t2a = as1(t2)
     t2_2_a = as1(t2_2)
 
-    h1  = utils.einsum('iakb,jakb->ij', t2, as2(ovov)) * 0.5
-    h1 += h1.T
+    h1  = np.diag(helper.eo)
 
-    h1 += np.diag(helper.eo)
-
-    h1 *= sign
+    tmp1 = utils.einsum('iakb,jakb->ij', t2, as2(ovov)) * 0.5
+    h1 += tmp1
+    h1 += tmp1.T
 
     tmp1 = utils.einsum('ld,ldji->ij', t1_2, as2(ovoo, (0,2)))
-    h1 += tmp1
-    h1 += tmp1.T
+    h1 += sign * tmp1
+    h1 += sign * tmp1.T
 
     tmp1  = utils.einsum('iakb,jakb->ij', t2_2_a, as1(ovov)) * 0.5 
-    tmp1 += utils.einsum('iakb,jakb->ij', t2_2, ovov)
-    h1 += tmp1
-    h1 += tmp1.T
+    tmp1 += utils.einsum('iakb,jbka->ij', t2_2, ovov) * 0.5
+    tmp2  = lib.direct_sum('ijb,a->iajb', eija, -helper.ev)
+    tmp1 -= utils.einsum('iakb,jakb->ij', as2(t2_2) * tmp2, t2) * 0.5
+    h1 += sign * tmp1
+    h1 += sign * tmp1.T
 
-    tmp1 = utils.einsum('iakb,jakb->ij', t2_2, as2(ovov)) * -0.5 
-    h1 += tmp1
-    h1 += tmp1.T
+    tmp1  = utils.einsum('lckb,jalc->jakb', as2(t2), as2(t2))
+    tmp2  = utils.einsum('jakb,iakb->ij', tmp1, ovov)
+    tmp1  = utils.einsum('lckb,jalc->jkab', t2a, t2a)
+    tmp1 += utils.einsum('lckb,jalc->jkab', t2, t2)
+    tmp1 += utils.einsum('lakc,jclb->jkab', t2, t2)
+    tmp2 -= utils.einsum('ikab,jkab->ij', tmp1, oovv)
+    h1 += sign * tmp2
+    h1 += sign * tmp2.T
 
-    eiajb = lib.direct_sum('ijb,a->iajb', eija, -helper.ev)
-    tmp1 = utils.einsum('iakb,iakb,jakb->ij', as2(t2_2), eiajb, t2) * -0.5
-    h1 += tmp1
-    h1 += tmp1.T
-    del eiajb
+    tmp1  = utils.einsum('ialb,ijkl->jakb', t2, oooo)
+    tmp1 += utils.einsum('jckd,cadb->jakb', t2, vvvv) * 0.5
+    tmp2  = utils.einsum('jalc,klbc->jakb', t2, oovv) * -0.5
+    tmp3  = utils.einsum('iakb,jakb->ij', t2, tmp1+tmp2)
+    tmp2  = utils.einsum('jalc,klbc->jakb', t2a, oovv) * -0.5
+    tmp1  = as1(tmp1) * 0.5
+    tmp3 += utils.einsum('iakb,jakb->ij', t2a, tmp1+tmp2)
+    h1 += sign * tmp3
+    h1 += sign * tmp3.T
 
-    tmp1  = utils.einsum('lakb,jalc,ickb->ij', t2a+t2, t2a-t2.swapaxes(1,3), ovov) * -1.0
-    tmp1 += utils.einsum('lakb,jalc,ikcb->ij', t2a, t2a, oovv)
-    tmp1 -= utils.einsum('lakb,jcla,ikcb->ij', t2, t2, oovv)
-    tmp1 -= utils.einsum('lbka,jalc,ikcb->ij', t2, t2, oovv)
-    h1 += tmp1
-    h1 += tmp1.T
+    tmp1  = utils.einsum('iakb,ialb->kl', t2a, t2a)
+    tmp1 += utils.einsum('iakb,ialb->kl', t2, t2) * 2.0
+    h1 -= utils.einsum('ijkl,kl->ij', as2(oooo), tmp1) * sign * 0.5
 
-    h1 += utils.einsum('lamb,janb,limn->ij', t2a, t2a, as1(oooo)) * 0.25
-    h1 += utils.einsum('lamb,janb,limn->ij', t2, t2, oooo)
+    tmp1  = utils.einsum('iakc,iakb->bc', t2a, t2a)
+    tmp1 += utils.einsum('iakc,iakb->bc', t2, t2) * 2.0
+    h1 += utils.einsum('jibc,bc->ij', oovv, tmp1) * sign 
+    h1 -= utils.einsum('jcib,bc->ij', ovov, tmp1) * sign * 0.5
 
-    tmp1 = utils.einsum('iajb,acbd->icjd', t2, vvvv)
-    h1 += utils.einsum('iakb,jakb->ij', t2, tmp1)
+    tmp1 = utils.einsum('jalc,kblc->jakb', as2(t2), ovov)
+    h1 += utils.einsum('iakb,jakb->ij', as2(t2), tmp1) * sign
 
-    tmp1 = utils.einsum('iajb,acbd->icjd', t2a, vvvv)
-    h1 += utils.einsum('iakb,jakb->ij', t2a, as1(tmp1)) * 0.25
-
-    tmp1 = utils.einsum('iakb,ijkl->jalb', t2, oooo)
-    h1 += utils.einsum('iakb,jakb->ij', t2, tmp1)
-
-    tmp1 = utils.einsum('iakb,ijkl->jalb', t2a, oooo)
-    h1 += utils.einsum('iakb,jakb->ij', t2a, as1(tmp1)) * 0.25
-
-    h1 += utils.einsum('lakc,lakb,jibc->ij', t2a, t2a, oovv)
-    h1 -= utils.einsum('lakc,lakb,jcib->ij', t2a, t2a, ovov) * 0.5
-    h1 += utils.einsum('lakc,lakb,jibc->ij', t2, t2, oovv) * 2.0
-    h1 -= utils.einsum('lakc,lakb,jcib->ij', t2, t2, ovov)
-
-    h1 -= utils.einsum('iakb,jalc,klcb->ij', t2a, t2a, oovv)
-    h1 += utils.einsum('iakb,jalc,kblc->ij', t2a+t2, t2a+t2, ovov)
-    h1 -= utils.einsum('iakb,jalc,klcb->ij', t2, t2, oovv)
-    h1 -= utils.einsum('ibka,jcla,klcb->ij', t2, t2, oovv)
-                                
-    h1 -= utils.einsum('malb,makb,jilk->ij', t2a, t2a, 2*oooo-oooo.swapaxes(1,3)) * 0.5
-    h1 -= utils.einsum('malb,makb,jilk->ij', t2, t2, 2*oooo-oooo.swapaxes(1,3))
-
-    h1 *= sign
+    tmp1 = utils.einsum('jcla,klbc->jakb', t2, oovv)
+    h1 -= utils.einsum('ibka,jakb->ij', t2, tmp1) * sign
 
     def matvec(y):
         y = np.asarray(y, order='C')
