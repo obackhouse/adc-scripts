@@ -45,8 +45,8 @@ def get_matvec(helper):
     h1 += sign * tmp2
     h1 += sign * tmp2.T
 
-    tmp1  = utils.einsum('ialb,ijkl->jakb', t2, oooo)
-    tmp1 += utils.einsum('jckd,cadb->jakb', t2, vvvv) * 0.5
+    tmp1  = utils.einsum('jkab->jakb', helper._t2_oooo.copy())
+    tmp1 += utils.einsum('jkab->jakb', helper._t2_vvvv.copy()) * 0.5
     tmp2  = utils.einsum('jalc,klbc->jakb', t2, oovv) * -0.5
     tmp3  = utils.einsum('iakb,jakb->ij', t2, tmp1+tmp2)
     tmp2  = utils.einsum('jalc,klbc->jakb', t2a, oovv) * -0.5
@@ -150,6 +150,9 @@ class ADCHelper(ip_radc2.ADCHelper):
         eiajb = lib.direct_sum('ia,jb->iajb', eia, eia)
         self.t2 = self.ovov / eiajb
 
+        self._t2_oooo = np.tensordot(self.oooo, self.t2, axes=((0,2),(0,2)))
+        self._t2_vvvv = np.tensordot(self.t2, self.vvvv, axes=((1,3),(0,2)))
+
         t2a = self.t2 - self.t2.swapaxes(0,2).copy()
         self.t1_2  = utils.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a*0.5)
         self.t1_2 -= utils.einsum('kcad,ickd->ia', self.ovvv, t2a) * 0.5
@@ -157,8 +160,8 @@ class ADCHelper(ip_radc2.ADCHelper):
         self.t1_2 -= utils.einsum('kcli,lakc->ia', self.ovoo, t2a) * 0.5
         self.t1_2 /= eia
 
-        self.t2_2  = utils.einsum('acbd,icjd->iajb', self.vvvv, self.t2)
-        self.t2_2 += utils.einsum('kilj,kalb->iajb', self.oooo, self.t2)
+        self.t2_2  = utils.einsum('ijab->iajb', self._t2_oooo.copy())
+        self.t2_2 += utils.einsum('ijab->iajb', self._t2_vvvv.copy())
         self.t2_2 += utils.einsum('kcjb,iakc->iajb', self.ovov, self.t2+t2a)
         self.t2_2 -= utils.einsum('kjbc,iakc->iajb', self.oovv, self.t2)
         self.t2_2 -= utils.einsum('kibc,kajc->iajb', self.oovv, self.t2)
