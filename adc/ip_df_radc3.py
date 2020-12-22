@@ -15,35 +15,17 @@ def as2(x, axis=(1,3)):
     return 2.0 * x - x.swapaxes(*axis)
 
 def dot_along_tail(a, b):
-    # iakb,jakb->ij or similar with MPI support
-
+    # shortcut to mpi_helper.einsum('iakb,jakb->ij', a, b)
     a = a.reshape(a.shape[0], -1)
     b = b.reshape(b.shape[0], -1)
-    assert a.shape[1] == b.shape[1]
-
-    p0, p1 = mpi_helper.distr_blocks(a.shape[1])
-    m = np.dot(a[:,p0:p1], b[:,p0:p1].T)
-
-    mpi_helper.barrier()
-    mpi_helper.allreduce_inplace(m)
-
-    return m
+    return mpi_helper.dot(a, b.T)
 
 def dot_along_tail2(a, b):
-    # iakc,jbkc->iajb or similar with MPI support
-
+    # shortcut to mpi_helper.einsum('iakc,jbkc->iajb', a, b)
     shape = (a.shape[0], a.shape[1], b.shape[0], b.shape[1])
     a = a.reshape(a.shape[0]*a.shape[1], -1)
     b = b.reshape(b.shape[0]*b.shape[1], -1)
-    assert a.shape[1] == b.shape[1]
-
-    p0, p1 = mpi_helper.distr_blocks(a.shape[1])
-    m = np.dot(a[:,p0:p1], b[:,p0:p1].T)
-
-    mpi_helper.barrier()
-    mpi_helper.allreduce_inplace(m)
-
-    return m.reshape(shape)
+    return mpi_helper.dot(a, b.T).reshape(shape)
 
 def get_matvec(helper):
     t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
@@ -58,7 +40,7 @@ def get_matvec(helper):
     h1 += tmp1
     h1 += tmp1.T
 
-    tmp1 = utils.einsum('ld,jild->ij', t1_2, as2(ooov, (0,2)))
+    tmp1  = mpi_helper.einsum('ijld,ld->ij', as2(ooov, (0,2)), t1_2)
     h1 += sign * tmp1
     h1 += sign * tmp1.T
 
@@ -78,8 +60,8 @@ def get_matvec(helper):
     h1 += sign * tmp2
     h1 += sign * tmp2.T
 
-    tmp1  = utils.einsum('jkab->jakb', helper._t2_oooo.copy())
-    tmp1 += utils.einsum('jkab->jakb', helper._t2_vvvv.copy()) * 0.5
+    tmp1  = helper._t2_oooo.copy().swapaxes(1,2)
+    tmp1 += helper._t2_vvvv.copy().swapaxes(1,2) * 0.5
     tmp2  = dot_along_tail2(t2, oovv.swapaxes(1,2)) * -0.5
     tmp3  = dot_along_tail(t2, tmp1+tmp2)
     tmp2  = dot_along_tail2(t2a, oovv.swapaxes(1,2)) * -0.5
@@ -89,15 +71,19 @@ def get_matvec(helper):
 
     tmp1  = dot_along_tail(t2a, t2a)
     tmp1 += dot_along_tail(t2, t2) * 2.0
+    tmp2  = np.zeros_like(h1)
     for i in mpi_helper.distr_iter(range(nocc)):
         v = np.dot(helper.Loo[:,i].T, helper.Loo.reshape(-1, nocc*nocc)).reshape(nocc, nocc, nocc)
         v = 2.0 * v - v.swapaxes(0,2)
-        h1[i] -= np.dot(v.reshape(nocc, -1), tmp1.ravel()) * sign * 0.5
+        tmp2[i] -= np.dot(v.reshape(nocc, -1), tmp1.ravel()) * sign * 0.5
+    mpi_helper.barrier()
+    mpi_helper.allreduce_inplace(tmp2)
+    h1 += tmp2
 
     tmp1  = dot_along_tail(t2a.swapaxes(0,1), t2a.swapaxes(0,1))
     tmp1 += dot_along_tail(t2.swapaxes(0,1), t2.swapaxes(0,1)) * 2.0
-    h1 += utils.einsum('jibc,bc->ij', oovv, tmp1) * sign 
-    h1 -= utils.einsum('jcib,bc->ij', ovov, tmp1) * sign * 0.5
+    h1 += mpi_helper.einsum('ijbc,bc->ij', oovv, tmp1) * sign
+    h1 -= mpi_helper.einsum('ibjc,bc->ij', ovov, tmp1) * sign * 0.5
 
     tmp1  = dot_along_tail2(as2(t2), ovov)
     h1 += dot_along_tail(as2(t2), tmp1) * sign
@@ -205,6 +191,9 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         for a in mpi_helper.distr_iter(range(nvir)):
             v = np.dot(self.Lvv[:,a].T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nvir, nvir, nvir)
             self._t2_vvvv += np.tensordot(self.t2[:,a], v, axes=((2,),(2,)))
+        mpi_helper.barrier()
+        mpi_helper.allreduce_inplace(self._t2_oooo)
+        mpi_helper.allreduce_inplace(self._t2_vvvv)
 
         self.t2_2  = utils.einsum('ijab->iajb', self._t2_oooo.copy())
         self.t2_2 += utils.einsum('ijab->iajb', self._t2_vvvv.copy())
