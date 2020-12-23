@@ -28,7 +28,7 @@ def dot_along_tail2(a, b):
     return mpi_helper.dot(a, b.T).reshape(shape)
 
 def get_matvec(helper):
-    t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
+    t1_2, t2, t2_2, ovov, ooov, oovv, ovvv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     sign = helper.sign
     t2a = as1(t2)
@@ -103,42 +103,51 @@ def get_matvec(helper):
 
         ri   += np.dot(h1, yi)
 
-        ri   += utils.einsum('kija,ija->k', as2(ooov, (1,2)), yija)
-        rija += utils.einsum('k,kija->ija', yi, ooov)
+        ri   += mpi_helper.einsum('kija,ija->k', as2(ooov, (1,2)), yija)
+        rija += mpi_helper.einsum('k,kija->ija', yi, ooov)
         rija += eija * yija
 
-        rija -= utils.einsum('ikjl,kla->ija', oooo, yija) * sign
-        rija += utils.einsum('ilba,ljb->ija', oovv, yija) * sign
-        rija -= utils.einsum('jalb,ilb->ija', ovov, as2(yija, (0,1))) * sign
-        rija += utils.einsum('jlba,ilb->ija', oovv, yija) * sign
+        tmp1 = np.zeros_like(rija)
+        for i in mpi_helper.distr_iter(range(nocc)):
+            v = np.dot(helper.Loo[:,i].T, helper.Loo.reshape(-1, nocc*nocc))
+            v = v.reshape(nocc, nocc, nocc).swapaxes(0,1).reshape(nocc, -1)
+            tmp1[i] -= np.dot(v, yija.reshape(nocc*nocc, -1)) * sign
+        mpi_helper.barrier()
+        mpi_helper.allreduce_inplace(tmp1)
+        rija += tmp1
 
-        tmp1  = utils.einsum('ibjc,jia->cab', t2a, as1(yija, (0,1))) * 0.25
-        ri   += utils.einsum('cab,icab->i', tmp1, as1(ovvv)) * sign
-        tmp1  = utils.einsum('kbjc,jka->cab', t2, yija)
-        ri   += utils.einsum('cab,icab->i', tmp1, ovvv) * sign
-        tmp1  = utils.einsum('i,ibac->cab', yi, ovvv)
-        rija += utils.einsum('cab,jcib->ija', tmp1, t2) * sign
+        rija += mpi_helper.einsum('ilba,ljb->ija', oovv, yija) * sign
+        rija += mpi_helper.einsum('jlba,ilb->ija', oovv, yija) * sign
+        rija -= mpi_helper.einsum('jalb,ilb->ija', ovov, as2(yija, (0,1))) * sign
 
-        tmp1  = utils.einsum('jalb,kja->blk', t2a, as1(yija, (0,1)))
-        tmp1 += utils.einsum('jalb,kja->blk', t2, yija)
-        ri   += utils.einsum('blk,iklb->i', tmp1, as1(ooov, (0,2))) * sign
+        tmp1  = mpi_helper.einsum('ibjc,jia->cab', t2a, as1(yija, (0,1))) * 0.25
+        ri   += mpi_helper.einsum('cab,icab->i', tmp1, as1(ovvv)) * sign
+        tmp1  = mpi_helper.einsum('ibjc,jia->cab', t2, yija)
+        ri   += mpi_helper.einsum('cab,icab->i', tmp1, ovvv) * sign
+        tmp1  = mpi_helper.einsum('i,ibac->cab', yi, ovvv)
+        rija += mpi_helper.einsum('cab,jcib->ija', tmp1, t2) * sign
 
-        tmp1  = utils.einsum('jalb,kja->blk', t2, as1(yija, (0,1)))
-        tmp1 += utils.einsum('jalb,kja->blk', t2a, yija)
-        ri   += utils.einsum('blk,iklb->i', tmp1, ooov) * sign
+        tmp1  = mpi_helper.einsum('jalb,kja->blk', t2a, as1(yija, (0,1)))
+        tmp1 += mpi_helper.einsum('jalb,kja->blk', t2, yija)
+        ri   += mpi_helper.einsum('blk,iklb->i', tmp1, as1(ooov, (0,2))) * sign
 
-        tmp1  = utils.einsum('jbla,jka->blk', t2, yija)
-        ri   -= utils.einsum('blk,lkib->i', tmp1, ooov) * sign
+        tmp1  = mpi_helper.einsum('jalb,kja->blk', t2, as1(yija, (0,1)))
+        tmp1 += mpi_helper.einsum('jalb,kja->blk', t2a, yija)
+        ri   += mpi_helper.einsum('blk,iklb->i', tmp1, ooov) * sign
 
-        tmp1  = utils.einsum('i,iklb->kbl', yi, as1(ooov, (0,2)))
-        rija += utils.einsum('kbl,jalb->kja', tmp1, t2) * sign
+        tmp1  = mpi_helper.einsum('jbla,jka->blk', t2, yija)
+        ri   -= mpi_helper.einsum('blk,lkib->i', tmp1, ooov) * sign
 
-        tmp1  = utils.einsum('i,iklb->kbl', yi, ooov)
-        rija += utils.einsum('kbl,jalb->kja', tmp1, t2a) * sign
+        tmp1  = mpi_helper.einsum('i,iklb->kbl', yi, as1(ooov, (0,2)))
+        rija += mpi_helper.einsum('kbl,jalb->kja', tmp1, t2) * sign
 
-        rija -= utils.einsum('i,ljib,kbla->kja', yi, ooov, t2) * sign
+        tmp1  = mpi_helper.einsum('i,iklb->kbl', yi, ooov)
+        rija += mpi_helper.einsum('kbl,jalb->kja', tmp1, t2a) * sign
 
-        return r
+        tmp1  = mpi_helper.einsum('i,ljib->ljb', yi, ooov)
+        rija -= mpi_helper.einsum('ljb,kbla->kja', tmp1, t2) * sign
+
+        return mpi_helper.mean(r) #FIXME: robust enough?
 
     diag = np.concatenate([np.diag(h1), eija.ravel()])
 
@@ -146,7 +155,7 @@ def get_matvec(helper):
         # According to A. Sokolov these might actually make things worse
         # See https://github.com/pyscf/pyscf/commit/994e325159866bc74319418033db270a6b6a9d57#r45037621
         diag_ija = diag[nocc:].reshape(nocc, nocc, nvir)
-        diag_ija -= utils.einsum('iijj->ij', oooo)[:,:,None] * sign
+        diag_ija -= utils.einsum('Lii,Ljj->ij', helper.Loo, helper.Loo)[:,:,None] * sign
         diag_ija += utils.einsum('jjaa->ja', oovv)[None,:,:] * sign
         diag_ija += utils.einsum('iiaa->ia', oovv)[:,None,:] * sign
 
@@ -162,12 +171,10 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         self.Lov = self.ao2mo(self.co, self.cv)
 
         nocc, nvir = self.nocc, self.nvir
-        self.ovov = np.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nvir, nocc, nvir)
-        self.oovv = np.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nocc, nvir, nvir)
-        self.ooov = np.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nocc, nocc, nvir)
-        self.ovvv = np.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nvir, nvir, nvir)
-        self.oooo = np.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Loo.reshape(-1, nocc*nocc)).reshape(nocc, nocc, nocc, nocc)
-        self.vvvv = np.dot(self.Lvv.reshape(-1, nvir*nvir).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nvir, nvir, nvir, nvir)
+        self.ovov = mpi_helper.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nvir, nocc, nvir)
+        self.oovv = mpi_helper.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nocc, nvir, nvir)
+        self.ooov = mpi_helper.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nocc, nocc, nvir)
+        self.ovvv = mpi_helper.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nvir, nvir, nvir)
 
         self.eija = lib.direct_sum('i,j,a->ija', self.eo, self.eo, -self.ev)
         self.eajb = lib.direct_sum('a,j,b->ajb', -self.ev, self.eo, -self.ev)
@@ -177,10 +184,10 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         self.t2 = self.ovov / eiajb
 
         t2a = self.t2 - self.t2.swapaxes(0,2).copy()
-        self.t1_2  = utils.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a*0.5)
-        self.t1_2 -= utils.einsum('kcad,ickd->ia', self.ovvv, t2a) * 0.5
-        self.t1_2 -= utils.einsum('kilc,kalc->ia', self.ooov, self.t2+t2a*0.5)
-        self.t1_2 -= utils.einsum('likc,lakc->ia', self.ooov, t2a) * 0.5
+        self.t1_2  = mpi_helper.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a*0.5)
+        self.t1_2 -= mpi_helper.einsum('kcad,ickd->ia', self.ovvv, t2a) * 0.5
+        self.t1_2 -= mpi_helper.einsum('kilc,kalc->ia', self.ooov, self.t2+t2a*0.5)
+        self.t1_2 -= mpi_helper.einsum('likc,lakc->ia', self.ooov, t2a) * 0.5
         self.t1_2 /= eia
 
         self._t2_oooo = np.zeros((nocc, nocc, nvir, nvir))
@@ -195,19 +202,19 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         mpi_helper.allreduce_inplace(self._t2_oooo)
         mpi_helper.allreduce_inplace(self._t2_vvvv)
 
-        self.t2_2  = utils.einsum('ijab->iajb', self._t2_oooo.copy())
-        self.t2_2 += utils.einsum('ijab->iajb', self._t2_vvvv.copy())
-        self.t2_2 += utils.einsum('kcjb,iakc->iajb', self.ovov, self.t2+t2a)
-        self.t2_2 -= utils.einsum('kjbc,iakc->iajb', self.oovv, self.t2)
-        self.t2_2 -= utils.einsum('kibc,kajc->iajb', self.oovv, self.t2)
-        self.t2_2 -= utils.einsum('kjac,ickb->iajb', self.oovv, self.t2)
-        self.t2_2 += utils.einsum('kcia,kcjb->iajb', self.ovov, self.t2+t2a)
-        self.t2_2 -= utils.einsum('kiac,kcjb->iajb', self.oovv, self.t2)
+        self.t2_2  = self._t2_oooo.copy().swapaxes(1,2)
+        self.t2_2 += self._t2_vvvv.copy().swapaxes(1,2)
+        self.t2_2 += mpi_helper.einsum('kcjb,iakc->iajb', self.ovov, self.t2+t2a)
+        self.t2_2 -= mpi_helper.einsum('kjbc,iakc->iajb', self.oovv, self.t2)
+        self.t2_2 -= mpi_helper.einsum('kibc,kajc->iajb', self.oovv, self.t2)
+        self.t2_2 -= mpi_helper.einsum('kjac,ickb->iajb', self.oovv, self.t2)
+        self.t2_2 += mpi_helper.einsum('kcia,kcjb->iajb', self.ovov, self.t2+t2a)
+        self.t2_2 -= mpi_helper.einsum('kiac,kcjb->iajb', self.oovv, self.t2)
         self.t2_2 /= eiajb
 
         self.sign = 1
         self.guess_high_order = True
 
-        self._to_unpack = ['t1_2', 't2', 't2_2', 'ovov', 'ooov', 'oooo', 'oovv', 'ovvv', 'vvvv', 'eija']
+        self._to_unpack = ['t1_2', 't2', 't2_2', 'ovov', 'ooov', 'oovv', 'ovvv', 'eija']
 
     get_matvec = get_matvec
