@@ -265,7 +265,8 @@ def einsum(key, a, b):
     keys_to_sum_a = ''.join([akey[x] for x in axes_a])
     keys_to_sum_b = ''.join([bkey[x] for x in axes_b])
     if keys_to_sum_a != keys_to_sum_b:
-        axes_b = [axes_b[keys_to_sum_a.index(k)] for k in keys_to_sum_b]
+        perm = np.argsort([keys_to_sum_a.index(k) for k in keys_to_sum_b])
+        axes_b = [axes_b[x] for x in perm]
 
     res = tensordot(a, b, axes=(tuple(axes_a[::-1]), tuple(axes_b[::-1])))
 
@@ -284,6 +285,7 @@ if __name__ == '__main__':
         'cab,icab->i',
         'i,ibac->cab',
         'cab,jcib->ija',
+        'blk,lkib->i',
     ]
     sizes = dict(i=5, j=5, k=5, l=5, a=5, b=5, c=5, d=5)
 
