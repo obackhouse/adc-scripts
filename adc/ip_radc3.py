@@ -12,6 +12,19 @@ def as1(x, axis=(1,3)):
 def as2(x, axis=(1,3)):
     return 2.0 * x - x.swapaxes(*axis)
 
+def dot_along_tail(a, b):
+    # shortcut to mpi_helper.einsum('iakb,jakb->ij', a, b)
+    a = a.reshape(a.shape[0], -1)
+    b = b.reshape(b.shape[0], -1)
+    return mpi_helper.dot(a, b.T)
+
+def dot_along_tail2(a, b):
+    # shortcut to mpi_helper.einsum('iakc,jbkc->iajb', a, b)
+    shape = (a.shape[0], a.shape[1], b.shape[0], b.shape[1])
+    a = a.reshape(a.shape[0]*a.shape[1], -1)
+    b = b.reshape(b.shape[0]*b.shape[1], -1)
+    return mpi_helper.dot(a, b.T).reshape(shape)
+
 def get_matvec(helper):
     t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir

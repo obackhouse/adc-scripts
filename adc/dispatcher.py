@@ -95,9 +95,9 @@ def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9, maxiter=100
         mp2 = helper.mp2()
         if which == 'ea':
             mp2 *= -1
-        return e, v, mp2
+        return e, v, conv, mp2
     else:
-        return e, v
+        return e, v, conv
 
 def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
     if helper is None:
@@ -108,6 +108,7 @@ def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxit
     es = []
     vs = []
     mp2 = []
+    convs = []
 
     for ki in range(helper.nkpts):
         matvec, diag = helper.get_matvec(ki)
@@ -124,13 +125,14 @@ def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxit
 
         es.append(e)
         vs.append(v)
+        convs.append(conv)
 
     if do_mp2:
         mp2 = helper.mp2()
         if which == 'ea':
             mp2 *= -1
-        return es, vs, mp2
+        return es, vs, convs, mp2
     else:
-        return es, vs
+        return es, vs, convs
 
 
