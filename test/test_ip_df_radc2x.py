@@ -17,7 +17,8 @@ class KnownValues(unittest.TestCase):
         del cls.mf
 
     def test_ip_radc2x(self):
-        e, v, e_mp2 = run(self.mf, method='2x', nroots=5, tol=1e-12, do_mp2=True)
+        e, v, conv, e_mp2 = run(self.mf, method='2x', nroots=5, tol=1e-12, do_mp2=True)
+        self.assertTrue(all(conv))
         self.assertAlmostEqual(e_mp2, -0.20905685, 5)
         self.assertAlmostEqual(e[0],   0.40478204, 5) 
         self.assertAlmostEqual(e[1],   0.51862959, 5) 

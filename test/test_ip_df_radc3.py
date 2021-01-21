@@ -19,7 +19,8 @@ class KnownValues(unittest.TestCase):
     def test_ip_df_radc3(self):
         # [0.44743838 0.55574549 0.63750722 1.09105829 1.14208418]
         # [0.15472896 0.23249965 0.41121217 0.45801825 0.56210971]
-        e, v, e_mp2 = run(self.mf, method='3', nroots=5, tol=1e-12, do_mp2=True)
+        e, v, conv, e_mp2 = run(self.mf, method='3', nroots=5, tol=1e-12, do_mp2=True)
+        self.assertTrue(all(conv))
         self.assertAlmostEqual(e_mp2, -0.20905685, 5)
         self.assertAlmostEqual(e[0],   0.44743838, 5) 
         self.assertAlmostEqual(e[1],   0.55574549, 5) 

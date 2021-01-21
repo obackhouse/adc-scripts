@@ -34,10 +34,12 @@ class KnownValues(unittest.TestCase):
         smf._eri = np.dot(_cderi.T, _cderi)
         del smf.with_df
 
-        e1, v1 = run(mf, nroots=3, do_mp2=False)
-        e2, v2 = run(smf, nroots=6, do_mp2=False)
+        e1, v1, convs1 = run(mf, nroots=3, do_mp2=False)
+        e2, v2, convs2 = run(smf, nroots=6, do_mp2=False)
         e1 = np.sort(np.concatenate(e1))
         e2 = np.sort(e2)
+        self.assertTrue(np.all(convs1))
+        self.assertTrue(np.all(convs2))
         self.assertAlmostEqual(e1[0], e2[0], 7)
         self.assertAlmostEqual(e1[1], e2[1], 7)
         self.assertAlmostEqual(e1[2], e2[2], 7)
@@ -59,10 +61,12 @@ class KnownValues(unittest.TestCase):
         smf._eri = np.dot(_cderi.T, _cderi)
         del smf.with_df
 
-        e1, v1 = run(mf, nroots=3, do_mp2=False)
-        e2, v2 = run(smf, nroots=6, do_mp2=False)
+        e1, v1, convs1 = run(mf, nroots=3, do_mp2=False)
+        e2, v2, convs2 = run(smf, nroots=6, do_mp2=False)
         e1 = np.sort(np.concatenate(e1))
         e2 = np.sort(e2)
+        self.assertTrue(np.all(convs1))
+        self.assertTrue(np.all(convs2))
         self.assertAlmostEqual(e1[0], e2[0], 6)
         self.assertAlmostEqual(e1[1], e2[1], 6)
         self.assertAlmostEqual(e1[2], e2[2], 6)
@@ -82,10 +86,12 @@ class KnownValues(unittest.TestCase):
         smf._eri = np.dot(_cderi.T, _cderi)
         del smf.with_df
 
-        e1, v1 = run(mf, nroots=3, do_mp2=False)
-        e2, v2 = run(smf, nroots=6, do_mp2=False)
+        e1, v1, convs1 = run(mf, nroots=3, do_mp2=False)
+        e2, v2, convs2 = run(smf, nroots=6, do_mp2=False)
         e1 = np.sort(np.concatenate(e1))
         e2 = np.sort(e2)
+        self.assertTrue(np.all(convs1))
+        self.assertTrue(np.all(convs2))
         self.assertAlmostEqual(e1[0], e2[0], 6)
         self.assertAlmostEqual(e1[1], e2[1], 6)
         self.assertAlmostEqual(e1[2], e2[2], 6)
