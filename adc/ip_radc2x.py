@@ -7,6 +7,27 @@ from adc import utils, mpi_helper, ip_radc2
 from pyscf import lib
 
 
+def get_1h(helper):
+    t2, ovov, ooov, oooo, oovv, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    sign = helper.sign
+
+    p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
+    t2_block = t2.reshape(nocc, -1)[:,p0:p1]
+    ovov_as_block  = ovov.reshape(nocc, -1)[:,p0:p1] * 2.0
+    ovov_as_block -= ovov.swapaxes(1,3).reshape(nocc, -1)[:,p0:p1]
+
+    h1  = np.dot(t2_block, ovov_as_block.T) * 0.5
+    h1 += h1.T
+
+    mpi_helper.barrier()
+    mpi_helper.allreduce_inplace(h1)
+
+    h1 += np.diag(helper.eo)
+
+    return h1
+
+
 def get_matvec(helper):
     t2, ovov, ooov, oooo, oovv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
@@ -23,13 +44,7 @@ def get_matvec(helper):
     ooov_as_block -= ooov.swapaxes(1,2).reshape(nocc, -1)[:,q0:q1]
     eija_block = eija.ravel()[q0:q1]
 
-    h1  = np.dot(t2_block, ovov_as_block.T) * 0.5
-    h1 += h1.T
-
-    mpi_helper.barrier()
-    mpi_helper.allreduce_inplace(h1)
-
-    h1 += np.diag(helper.eo)
+    h1 = get_1h(helper)
 
     def matvec(y):
         y = np.asarray(y, order='C')
@@ -98,3 +113,4 @@ class ADCHelper(ip_radc2.ADCHelper):
         self._to_unpack = ['t2', 'ovov', 'ooov', 'oooo', 'oovv', 'eija']
 
     get_matvec = get_matvec
+    get_1h = get_1h

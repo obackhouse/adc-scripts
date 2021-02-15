@@ -12,7 +12,7 @@ from pyscf.pbc.mp.kmp2 import _padding_k_idx
 #TODO: handle padded calculations
 
 
-def get_matvec(helper, ki):
+def get_1h(helper, ki):
     t2, ovov, ooov, eija = helper.unpack()
     nocc, nvir = max(helper.nocc), max(helper.nvir)
     nkpts = helper.nkpts
@@ -31,6 +31,15 @@ def get_matvec(helper, ki):
 
     h1 += h1.T.conj()
     h1 += np.diag(helper.eo[ki])
+
+    return h1
+
+def get_matvec(helper, ki):
+    t2, ovov, ooov, eija = helper.unpack()
+    nocc, nvir = max(helper.nocc), max(helper.nvir)
+    nkpts = helper.nkpts
+
+    h1 = get_1h(helper, ki)
 
     def matvec(y):
         y = np.asarray(y, order='C', dtype=helper.dtype)
@@ -152,3 +161,4 @@ class ADCHelper(ip_radc2.ADCHelper):
 
     get_matvec = get_matvec
     get_guesses = get_guesses
+    get_1h = get_1h

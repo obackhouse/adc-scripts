@@ -27,7 +27,7 @@ def dot_along_tail2(a, b):
     b = b.reshape(b.shape[0]*b.shape[1], -1)
     return mpi_helper.dot(a, b.T).reshape(shape)
 
-def get_matvec(helper):
+def get_1h(helper):
     t1_2, t2, t2_2, ovov, ooov, oovv, ovvv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     sign = helper.sign
@@ -90,6 +90,16 @@ def get_matvec(helper):
 
     tmp1  = dot_along_tail2(t2.swapaxes(1,3), oovv.swapaxes(1,2))
     h1 -= dot_along_tail(t2.swapaxes(1,3), tmp1) * sign
+
+    return h1
+
+def get_matvec(helper):
+    t1_2, t2, t2_2, ovov, ooov, oovv, ovvv, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    sign = helper.sign
+    t2a = as1(t2)
+
+    h1 = get_1h(helper)
 
     def matvec(y):
         y = np.asarray(y, order='C')
@@ -218,3 +228,4 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         self._to_unpack = ['t1_2', 't2', 't2_2', 'ovov', 'ooov', 'oovv', 'ovvv', 'eija']
 
     get_matvec = get_matvec
+    get_1h = get_1h

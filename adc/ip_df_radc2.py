@@ -7,7 +7,7 @@ from adc import utils, mpi_helper, ip_radc2
 from pyscf import lib
 
 
-def get_matvec(helper):
+def get_1h(helper):
     Lov, Loo, eia, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     eija = eija.reshape(nocc, -1)
@@ -27,6 +27,16 @@ def get_matvec(helper):
 
     h1 += h1.T
     h1 += np.diag(helper.eo)
+
+    return h1
+
+
+def get_matvec(helper):
+    Lov, Loo, eia, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    eija = eija.reshape(nocc, -1)
+
+    h1 = get_1h(helper)
 
     def matvec(y):
         y = np.asarray(y, order='C')
@@ -92,3 +102,4 @@ class ADCHelper(ip_radc2.ADCHelper):
         return e_mp2
 
     get_matvec = get_matvec
+    get_1h = get_1h

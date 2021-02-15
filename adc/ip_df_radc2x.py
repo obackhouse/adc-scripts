@@ -7,7 +7,7 @@ from adc import utils, mpi_helper, ip_df_radc2
 from pyscf import lib
 
 
-def get_matvec(helper):
+def get_1h(helper):
     Lov, Loo, Lvv, eia, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
     sign = helper.sign
@@ -27,6 +27,16 @@ def get_matvec(helper):
 
     h1 += h1.T
     h1 += np.diag(helper.eo)
+
+    return h1
+
+
+def get_matvec(helper):
+    Lov, Loo, Lvv, eia, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    sign = helper.sign
+
+    h1 = get_1h(helper)
 
     def matvec(y):
         y = np.asarray(y, order='C')
@@ -98,3 +108,4 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         self._to_unpack = ['Lov', 'Loo', 'Lvv', 'eia', 'eija']
 
     get_matvec = get_matvec
+    get_1h = get_1h
