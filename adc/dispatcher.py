@@ -29,7 +29,7 @@ def get_picker(koopmans=False, real_system=False, guess=None):
 def load_helper(mf, method='2', which='ip'):
     hf_type = 'r' if isinstance(mf, scf.hf.RHF) else 'u'
     periodicity = 'k' if hasattr(mf, 'kpts') else ''
-    integral_type = 'df_' if hasattr(mf, 'with_df') and periodicity == '' else ''
+    integral_type = 'df_' if getattr(mf, 'with_df', False) and periodicity == '' else ''
     method_name = '%s_%s%s%sadc%s' % (which, integral_type, periodicity, hf_type, method)
 
     try:
