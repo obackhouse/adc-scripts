@@ -39,7 +39,7 @@ class _ADCHelper:
         #self.co, self.cv = self.cv, self.co
 
     def ao2mo(self, *coeffs):
-        if not hasattr(self.mf, 'with_df'):
+        if not getattr(self.mf, 'with_df', False):
             eri = ao2mo.incore.general(self.mf._eri, coeffs, compact=False)
             eri = eri.reshape([x.shape[1] for x in coeffs])
         else:
@@ -70,8 +70,23 @@ class _ADCHelper:
     def get_guesses(self):
         raise AttributeError
 
+    def get_moments(self):
+        raise AttributeError
+
     def unpack(self):
         return tuple([getattr(self, key) for key in self._to_unpack])
+
+    def get_dense_array(self):
+        matvec, diag = self.get_matvec()
+        v = np.zeros_like(diag)
+        m = np.zeros((v.size, v.size), dtype=v.dtype)
+
+        for i in range(v.size):
+            v[i] = 1.0
+            m[:,i] = matvec(v)
+            v[i] = 0.0
+
+        return m
 
     @property
     def nocc(self):
@@ -82,4 +97,3 @@ class _ADCHelper:
     @property
     def nmo(self):
         return nested_apply(self.e, len)
-

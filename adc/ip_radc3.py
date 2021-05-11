@@ -155,6 +155,43 @@ def get_matvec(helper):
 
     return matvec, diag
 
+
+def get_moments(helper, nmax):
+    t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    sign = helper.sign
+    t2a = as2(t2)
+
+    vl  = as2(ooov, axis=(1,2))
+    vl += utils.einsum('jbic,kcba->kija', t2a, ovvv) * sign
+    vl += utils.einsum('jalb,kilb->kija', t2a, ooov) * sign * 2
+    vl -= utils.einsum('jalb,likb->kija', t2a, ooov) * sign
+    vl -= utils.einsum('ialb,kjlb->kija', t2a, ooov) * sign
+    vl -= utils.einsum('ibla,jlkb->kija', t2a, ooov) * sign
+
+    vr  = ooov.copy()
+    vr += utils.einsum('ibjc,kbca->kija', t2,  ovvv) * sign
+    vr -= utils.einsum('ibla,jlkb->kija', t2,  ooov) * sign
+    vr += utils.einsum('jalb,kilb->kija', t2a, ooov) * sign
+    vr -= utils.einsum('jalb,ilkb->kija', t2,  ooov) * sign
+
+    t = np.zeros((nmax+1, nocc, nocc), dtype=ovov.dtype)
+    t[0] = np.dot(vl.reshape(nocc, -1), vr.reshape(nocc, -1).T.conj())
+
+    for n in range(1, nmax+1):
+        vr = (
+            - utils.einsum('ikjl,xkla->xija', oooo, vr) * sign
+            + utils.einsum('ilba,xljb->xija', oovv, vr) * sign
+            - utils.einsum('jalb,xilb->xija', ovov, as2(vr, (1,2))) * sign
+            + utils.einsum('jlba,xilb->xija', oovv, vr) * sign
+            + utils.einsum('ija,xija->xija', eija, vr)
+        )
+
+        t[n] += utils.einsum('xija,yija->xy', vl, vr)
+
+    return t
+
+
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):
         self.eo, self.ev = self.e[self.o], self.e[self.v]
@@ -177,20 +214,18 @@ class ADCHelper(ip_radc2.ADCHelper):
         self._t2_vvvv = np.tensordot(self.t2, self.vvvv, axes=((1,3),(0,2)))
 
         t2a = self.t2 - self.t2.swapaxes(0,2).copy()
-        self.t1_2  = utils.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a*0.5)
-        self.t1_2 -= utils.einsum('kcad,ickd->ia', self.ovvv, t2a) * 0.5
-        self.t1_2 -= utils.einsum('kilc,kalc->ia', self.ooov, self.t2+t2a*0.5)
-        self.t1_2 -= utils.einsum('likc,lakc->ia', self.ooov, t2a) * 0.5
+        self.t1_2  = utils.einsum('kdac,ickd->ia', self.ovvv, self.t2+t2a)
+        self.t1_2 -= utils.einsum('kilc,kalc->ia', self.ooov, self.t2+t2a)
         self.t1_2 /= eia
 
         self.t2_2  = utils.einsum('ijab->iajb', self._t2_oooo.copy())
         self.t2_2 += utils.einsum('ijab->iajb', self._t2_vvvv.copy())
         self.t2_2 += utils.einsum('kcjb,iakc->iajb', self.ovov, self.t2+t2a)
-        self.t2_2 -= utils.einsum('kjbc,iakc->iajb', self.oovv, self.t2)
-        self.t2_2 -= utils.einsum('kibc,kajc->iajb', self.oovv, self.t2)
+        self.t2_2 -= utils.einsum('kjcb,iakc->iajb', self.oovv, self.t2)
+        self.t2_2 -= utils.einsum('kicb,kajc->iajb', self.oovv, self.t2)
         self.t2_2 -= utils.einsum('kjac,ickb->iajb', self.oovv, self.t2)
         self.t2_2 += utils.einsum('kcia,kcjb->iajb', self.ovov, self.t2+t2a)
-        self.t2_2 -= utils.einsum('kiac,kcjb->iajb', self.oovv, self.t2)
+        self.t2_2 -= utils.einsum('kica,kcjb->iajb', self.oovv, self.t2)
         self.t2_2 /= eiajb
 
         self.sign = 1
@@ -200,3 +235,4 @@ class ADCHelper(ip_radc2.ADCHelper):
 
     get_matvec = get_matvec
     get_1h = get_1h
+    get_moments = get_moments

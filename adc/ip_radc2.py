@@ -86,6 +86,25 @@ def get_guesses(helper, diag, nroots, koopmans=False):
 
     return list(guesses)
 
+def get_moments(helper, nmax):
+    t2, ovov, ooov, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+
+    vl = 2.0 * ooov - ooov.swapaxes(1,2)
+    vr = ooov
+
+    vl = vl.reshape(nocc, -1)
+    vr = vr.reshape(nocc, -1)
+
+    t = np.zeros((nmax+1, nocc, nocc), dtype=ovov.dtype)
+
+    for n in range(nmax+1):
+        t[n] = np.dot(vl, vr.T.conj())
+        if n != nmax:
+            vl *= eija.ravel()[None]
+
+    return t
+
 class ADCHelper(utils._ADCHelper):
     def build(self):
         self.eo, self.ev = self.e[self.o], self.e[self.v]
@@ -104,3 +123,4 @@ class ADCHelper(utils._ADCHelper):
     get_matvec = get_matvec
     get_guesses = get_guesses
     get_1h = get_1h
+    get_moments = get_moments
