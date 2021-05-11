@@ -56,7 +56,7 @@ def get_matvec(helper, ki):
             vk = vk.reshape(nocc, -1)
             ri += np.dot(ooov[ki,kj,kk].reshape(nocc, -1), yija[kj,kk])
             rija[kj,kk] += np.dot(yi, vk.conj())
-            rija[kj,kk] += eija[ki,kj,kk].ravel() * yija[kj,kk]
+            rija[kj,kk] += eija[kj,kk,kl].ravel() * yija[kj,kk]
 
         mpi_helper.barrier()
         mpi_helper.allreduce_inplace(ri)
