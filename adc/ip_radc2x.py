@@ -93,6 +93,33 @@ def get_matvec(helper):
 
     return matvec, diag
 
+
+def get_moments(helper, nmax):
+    t2, ovov, ooov, oooo, oovv, eija = helper.unpack()
+    nocc, nvir = helper.nocc, helper.nvir
+    sign = helper.sign
+
+    vl = 2.0 * ooov - ooov.swapaxes(1,2)
+    vr = ooov.copy()
+
+    t = np.zeros((nmax+1, nocc, nocc), dtype=ovov.dtype)
+    t[0] = np.dot(vl.reshape(nocc, -1), vr.reshape(nocc, -1).T.conj())
+
+    for n in range(1, nmax+1):
+        vr = (
+            - utils.einsum('ikjl,xkla->xija', oooo, vr) * sign
+            + utils.einsum('ilba,xljb->xija', oovv, vr) * sign
+            - utils.einsum('jalb,xilb->xija', ovov, vr) * sign * 2
+            + utils.einsum('jalb,xlib->xija', ovov, vr) * sign
+            + utils.einsum('jlba,xilb->xija', oovv, vr) * sign
+            + utils.einsum('ija,xija->xija', eija, vr)
+        )
+
+        t[n] += utils.einsum('xija,yija->xy', vl, vr)
+
+    return t
+
+
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):
         self.eo, self.ev = self.e[self.o], self.e[self.v]
@@ -114,3 +141,4 @@ class ADCHelper(ip_radc2.ADCHelper):
 
     get_matvec = get_matvec
     get_1h = get_1h
+    get_moments = get_moments
