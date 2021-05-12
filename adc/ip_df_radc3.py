@@ -8,17 +8,21 @@ import numpy as np
 from adc import utils, mpi_helper, ip_df_radc2
 from pyscf import lib
 
+
 def as1(x, axis=(1,3)):
     return x - x.swapaxes(*axis)
 
+
 def as2(x, axis=(1,3)):
     return 2.0 * x - x.swapaxes(*axis)
+
 
 def dot_along_tail(a, b):
     # shortcut to mpi_helper.einsum('iakb,jakb->ij', a, b)
     a = a.reshape(a.shape[0], -1)
     b = b.reshape(b.shape[0], -1)
     return mpi_helper.dot(a, b.T)
+
 
 def dot_along_tail2(a, b):
     # shortcut to mpi_helper.einsum('iakc,jbkc->iajb', a, b)
@@ -27,9 +31,10 @@ def dot_along_tail2(a, b):
     b = b.reshape(b.shape[0]*b.shape[1], -1)
     return mpi_helper.dot(a, b.T).reshape(shape)
 
+
 def get_1h(helper):
     t1_2, t2, t2_2, ovov, ooov, oovv, ovvv, eija = helper.unpack()
-    nocc, nvir = helper.nocc, helper.nvir
+    nocc = helper.nocc
     sign = helper.sign
     t2a = as1(t2)
     t2_2_a = as1(t2_2)
@@ -93,6 +98,7 @@ def get_1h(helper):
 
     return h1
 
+
 def get_matvec(helper):
     t1_2, t2, t2_2, ovov, ooov, oovv, ovvv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
@@ -109,7 +115,6 @@ def get_matvec(helper):
         ri = r[:nocc]
         yija = y[nocc:].reshape(nocc, nocc, nvir)
         rija = r[nocc:].reshape(nocc, nocc, nvir)
-        yija_as = as1(yija, (0,1))
 
         ri   += np.dot(h1, yi)
 
@@ -157,7 +162,7 @@ def get_matvec(helper):
         tmp1  = mpi_helper.einsum('i,ljib->ljb', yi, ooov)
         rija -= mpi_helper.einsum('ljb,kbla->kja', tmp1, t2) * sign
 
-        return mpi_helper.mean(r) #FIXME: robust enough?
+        return mpi_helper.mean(r)  # FIXME: robust enough?
 
     diag = np.concatenate([np.diag(h1), eija.ravel()])
 
@@ -171,6 +176,7 @@ def get_matvec(helper):
 
     return matvec, diag
 
+
 class ADCHelper(ip_df_radc2.ADCHelper):
     def build(self):
         self.eo, self.ev = self.e[self.o], self.e[self.v]
@@ -181,10 +187,26 @@ class ADCHelper(ip_df_radc2.ADCHelper):
         self.Lov = self.ao2mo(self.co, self.cv)
 
         nocc, nvir = self.nocc, self.nvir
-        self.ovov = mpi_helper.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nvir, nocc, nvir)
-        self.oovv = mpi_helper.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nocc, nvir, nvir)
-        self.ooov = mpi_helper.dot(self.Loo.reshape(-1, nocc*nocc).T, self.Lov.reshape(-1, nocc*nvir)).reshape(nocc, nocc, nocc, nvir)
-        self.ovvv = mpi_helper.dot(self.Lov.reshape(-1, nocc*nvir).T, self.Lvv.reshape(-1, nvir*nvir)).reshape(nocc, nvir, nvir, nvir)
+
+        self.ovov = mpi_helper.dot(
+                self.Lov.reshape(-1, nocc*nvir).T,
+                self.Lov.reshape(-1, nocc*nvir),
+        ).reshape(nocc, nvir, nocc, nvir)
+
+        self.oovv = mpi_helper.dot(
+                self.Loo.reshape(-1, nocc*nocc).T,
+                self.Lvv.reshape(-1, nvir*nvir),
+        ).reshape(nocc, nocc, nvir, nvir)
+
+        self.ooov = mpi_helper.dot(
+                self.Loo.reshape(-1, nocc*nocc).T,
+                self.Lov.reshape(-1, nocc*nvir),
+        ).reshape(nocc, nocc, nocc, nvir)
+
+        self.ovvv = mpi_helper.dot(
+                self.Lov.reshape(-1, nocc*nvir).T,
+                self.Lvv.reshape(-1, nvir*nvir),
+        ).reshape(nocc, nvir, nvir, nvir)
 
         self.eija = lib.direct_sum('i,j,a->ija', self.eo, self.eo, -self.ev)
         self.eajb = lib.direct_sum('a,j,b->ajb', -self.ev, self.eo, -self.ev)

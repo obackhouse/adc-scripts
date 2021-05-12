@@ -10,7 +10,6 @@ from pyscf import lib
 def get_1h(helper):
     Lov, Loo, Lvv, eia, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
-    sign = helper.sign
 
     h1 = np.zeros((nocc, nocc))
     ejab = lib.direct_sum('ja,b->jab', eia, -helper.ev)
@@ -44,7 +43,7 @@ def get_matvec(helper):
 
         yi = y[:nocc]
         ri = r[:nocc]
-        yija = y[nocc:].reshape(nocc, -1) 
+        yija = y[nocc:].reshape(nocc, -1)
         rija = r[nocc:].reshape(nocc, -1)
 
         for i in mpi_helper.distr_iter(range(nocc)):
@@ -89,6 +88,7 @@ def get_matvec(helper):
         diag_ija += utils.einsum('Lii,Laa->ia', Loo, Lvv)[:,None,:] * sign
 
     return matvec, diag
+
 
 class ADCHelper(ip_df_radc2.ADCHelper):
     def build(self):

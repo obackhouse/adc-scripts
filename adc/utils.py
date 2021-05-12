@@ -3,12 +3,13 @@ Utility functions.
 '''
 
 import numpy as np
-import functools
+#import functools
 from pyscf import lib, ao2mo
 from adc import mpi_helper
 
 einsum = lib.einsum
 #einsum = functools.partial(np.einsum, optimize=True)
+
 
 def nested_apply(item, func, ndim=1):
     peek_in = item
@@ -18,6 +19,7 @@ def nested_apply(item, func, ndim=1):
         return tuple(nested_apply(x, func) for x in item)
     else:
         return func(item)
+
 
 class _ADCHelper:
     def __init__(self, mf):
@@ -43,7 +45,7 @@ class _ADCHelper:
             eri = ao2mo.incore.general(self.mf._eri, coeffs, compact=False)
             eri = eri.reshape([x.shape[1] for x in coeffs])
         else:
-            eri = lib.unpack_tril(self.mf.with_df._cderi, axis=-1) #TODO improve
+            eri = lib.unpack_tril(self.mf.with_df._cderi, axis=-1)  # TODO improve
             eri = einsum('Lpq,pi,qj->Lij', eri, *coeffs)
         return eri
 
@@ -91,9 +93,11 @@ class _ADCHelper:
     @property
     def nocc(self):
         return nested_apply(self.eo, len)
+
     @property
     def nvir(self):
         return nested_apply(self.ev, len)
+
     @property
     def nmo(self):
         return nested_apply(self.e, len)

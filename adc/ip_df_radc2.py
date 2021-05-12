@@ -3,7 +3,7 @@ ADC(2) for ionization potentials for restricted references with density fitting.
 '''
 
 import numpy as np
-from adc import utils, mpi_helper, ip_radc2
+from adc import mpi_helper, ip_radc2
 from pyscf import lib
 
 
@@ -67,6 +67,7 @@ def get_matvec(helper):
     diag = np.concatenate([np.diag(h1), eija.ravel()])
 
     return matvec, diag
+
 
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):

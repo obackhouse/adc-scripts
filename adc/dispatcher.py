@@ -4,7 +4,7 @@ Dispatcher for ADC methods.
 
 import numpy as np
 from adc import utils
-from adc.methods import *
+from adc import methods
 from pyscf import lib, scf
 
 
@@ -14,9 +14,10 @@ def get_picker(koopmans=False, real_system=False, guess=None):
             w, v, idx = lib.linalg_helper.pick_real_eigs(w, v, nroots, envs)
             mask = np.argsort(np.absolute(w))
             return w[mask], v[:,mask], idx
-        
+
     else:
         assert guess is not None
+
         def pick(w, v, nroots, envs):
             x0 = lib.linalg_helper._gen_x0(envs['v'], envs['xs'])
             s = np.dot(np.asarray(guess).conj(), np.asarray(x0).T)
@@ -26,6 +27,7 @@ def get_picker(koopmans=False, real_system=False, guess=None):
 
     return pick
 
+
 def load_helper(mf, method='2', which='ip'):
     hf_type = 'r' if isinstance(mf, scf.hf.RHF) else 'u'
     periodicity = 'k' if hasattr(mf, 'kpts') else ''
@@ -33,13 +35,15 @@ def load_helper(mf, method='2', which='ip'):
     method_name = '%s_%s%s%sadc%s' % (which, integral_type, periodicity, hf_type, method)
 
     try:
-        module = globals()[method_name]
+        module = getattr(methods, method_name)
     except KeyError:
         raise NotImplementedError(method_name)
 
     return module.ADCHelper
 
-def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9, maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
+
+def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9,
+        maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
     ''' Runs the ADC(2) method.
 
     Arguments:
@@ -80,13 +84,13 @@ def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9, maxiter=100
         helper = helper(mf)
 
     matvec, diag = helper.get_matvec()
+    matvecs = lambda xs: [matvec(x) for x in xs]
     guesses = helper.get_guesses(diag, nroots, koopmans=koopmans)
     pick = get_picker(koopmans=koopmans, real_system=True, guess=guesses)
-    kwargs = dict(tol=tol, nroots=nroots, pick=pick, max_cycle=maxiter, 
+    kwargs = dict(tol=tol, nroots=nroots, pick=pick, max_cycle=maxiter,
                   max_space=maxspace, verbose=9 if verbose else 0)
 
-    #e, v = lib.davidson_nosym(matvec, guesses, diag, **kwargs)
-    conv, e, v = lib.davidson_nosym1(lambda xs: [matvec(x) for x in xs], guesses, diag, **kwargs)
+    conv, e, v = lib.davidson_nosym1(matvecs, guesses, diag, **kwargs)
 
     if which == 'ip':
         e = utils.nested_apply(e, lambda x: -x)
@@ -99,7 +103,9 @@ def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9, maxiter=100
     else:
         return e, v, conv
 
-def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
+
+def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12,
+             maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
     if helper is None:
         helper = load_helper(mf, method=method, which=which)
     if callable(helper):
@@ -112,13 +118,13 @@ def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxit
 
     for ki in range(helper.nkpts):
         matvec, diag = helper.get_matvec(ki)
+        matvecs = lambda xs: [matvec(x) for x in xs]
         guesses = helper.get_guesses(ki, diag, nroots, koopmans=koopmans)
         pick = get_picker(koopmans=koopmans, real_system=False, guess=guesses)
         kwargs = dict(tol=tol, nroots=nroots, pick=pick, max_cycle=maxiter,
                       max_space=maxspace, verbose=9 if verbose else 0)
 
-        #e, v = lib.davidson_nosym(matvec, guesses, diag, **kwargs)
-        conv, e, v = lib.davidson_nosym1(lambda xs: [matvec(x) for x in xs], guesses, diag, **kwargs)
+        conv, e, v = lib.davidson_nosym1(matvecs, guesses, diag, **kwargs)
 
         if which == 'ip':
             e = utils.nested_apply(e, lambda x: -x)
@@ -134,5 +140,3 @@ def _run_pbc(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-12, maxit
         return es, vs, convs, mp2
     else:
         return es, vs, convs
-
-

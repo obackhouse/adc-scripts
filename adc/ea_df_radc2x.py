@@ -2,9 +2,7 @@
 ADC(2)-x for electron affinities for restricted references with density fitting.
 '''
 
-import numpy as np
 from adc import ip_df_radc2x
-from pyscf import lib
 
 
 class ADCHelper(ip_df_radc2x.ADCHelper):

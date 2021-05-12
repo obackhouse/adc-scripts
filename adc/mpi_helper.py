@@ -4,14 +4,13 @@ Mostly adapted from pyscf and mpi4pyscf
 '''
 
 import numpy as np
-import itertools
 from pyscf import lib
 
 try:
     from mpi4py import MPI as mpi
     comm = mpi.COMM_WORLD
     size, rank = comm.Get_size(), comm.Get_rank()
-except:
+except Exception:
     mpi = comm = None
     size, rank = 1, 0
 
@@ -28,6 +27,7 @@ def check_for_mpi(function):
 
     return wrapper
 
+
 def as_acceptable_array(function):
     def wrapper(*args, **kwargs):
         buf = args[0]
@@ -43,6 +43,7 @@ def as_acceptable_array(function):
 
     return wrapper
 
+
 @check_for_mpi
 @as_acceptable_array
 def bcast(buf, root=0):
@@ -56,6 +57,7 @@ def bcast(buf, root=0):
         comm.Bcast(seg[p0:p1], root)
 
     return buf
+
 
 @check_for_mpi
 @as_acceptable_array
@@ -71,6 +73,7 @@ def allreduce(sendbuf, root=0, op=getattr(mpi, 'SUM', None)):
 
     return recvbuf
 
+
 @check_for_mpi
 @as_acceptable_array
 def allreduce_inplace(sendbuf):
@@ -78,15 +81,18 @@ def allreduce_inplace(sendbuf):
     safeAllreduceInPlace(comm, sendbuf)
     return sendbuf
 
+
 @check_for_mpi
 def barrier():
     comm.Barrier()
+
 
 @check_for_mpi
 def distr_iter(iterable):
     iterable = list(iterable)
     for i in iterable[rank::size]:
         yield i
+
 
 def distr_blocks(block):
     start = rank * (block // size)
@@ -95,13 +101,15 @@ def distr_blocks(block):
         end = max(end, block)
     return start, end
 
+
 def allclose(a):
     # numpy.allclose between MPI processes
 
     a_in = a.copy()
     a = allreduce(a_in) / size
-    
+
     return np.allclose(a_in, a)
+
 
 @check_for_mpi
 def correct_vector_phase(v, full_check=False, extra=None):
@@ -125,6 +133,7 @@ def correct_vector_phase(v, full_check=False, extra=None):
     else:
         return (v,) + tuple(extra)
 
+
 @check_for_mpi
 def mean(m):
     # take the mean of an array on each MPI process to gurantee determinism
@@ -134,6 +143,7 @@ def mean(m):
     m /= size
 
     return m
+
 
 def dot(a, b):
     # numpy.dot with MPI support
@@ -177,6 +187,7 @@ def dot(a, b):
 
     return res
 
+
 def tensordot(a, b, axes=2):
     # numpy.tensordot with MPI support
 
@@ -201,7 +212,7 @@ def tensordot(a, b, axes=2):
     as_, bs = a.shape, b.shape
     nda, ndb = a.ndim, b.ndim
     equal = True
-    
+
     if na != nb:
         equal = False
     else:
@@ -234,6 +245,7 @@ def tensordot(a, b, axes=2):
 
     return res.reshape(olda + oldb)
 
+
 def einsum(key, a, b):
     # single numpy.einsum contraction via tensordot with MPI support
     # the same axes must be contracted in a and b (order may vary)
@@ -246,14 +258,14 @@ def einsum(key, a, b):
     axes_b = []
 
     for i,k in enumerate(akey):
-        if k in rkey: 
+        if k in rkey:
             if k not in rkey_default:
                 rkey_default += k
         else:
             axes_a.append(i)
 
     for i,k in enumerate(bkey):
-        if k in rkey: 
+        if k in rkey:
             if k not in rkey_default:
                 rkey_default += k
         else:

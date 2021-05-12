@@ -2,9 +2,7 @@
 ADC(3) for electron affinities for restricted references.
 '''
 
-import numpy as np
 from adc import ip_radc3
-from pyscf import lib
 
 
 class ADCHelper(ip_radc3.ADCHelper):

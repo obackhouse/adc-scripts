@@ -10,7 +10,6 @@ from pyscf import lib
 def get_1h(helper):
     t2, ovov, ooov, oooo, oovv, eija = helper.unpack()
     nocc, nvir = helper.nocc, helper.nvir
-    sign = helper.sign
 
     p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
     t2_block = t2.reshape(nocc, -1)[:,p0:p1]
@@ -34,7 +33,6 @@ def get_matvec(helper):
     sign = helper.sign
 
     p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
-    t2_block = t2.reshape(nocc, -1)[:,p0:p1]
     ovov_as_block  = ovov.reshape(nocc, -1)[:,p0:p1] * 2.0
     ovov_as_block -= ovov.swapaxes(1,3).reshape(nocc, -1)[:,p0:p1]
 
@@ -96,7 +94,7 @@ def get_matvec(helper):
 
 def get_moments(helper, nmax):
     t2, ovov, ooov, oooo, oovv, eija = helper.unpack()
-    nocc, nvir = helper.nocc, helper.nvir
+    nocc = helper.nocc
     sign = helper.sign
 
     vl = 2.0 * ooov - ooov.swapaxes(1,2)

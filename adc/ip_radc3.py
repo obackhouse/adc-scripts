@@ -6,17 +6,21 @@ import numpy as np
 from adc import utils, mpi_helper, ip_radc2
 from pyscf import lib
 
+
 def as1(x, axis=(1,3)):
     return x - x.swapaxes(*axis)
 
+
 def as2(x, axis=(1,3)):
     return 2.0 * x - x.swapaxes(*axis)
+
 
 def dot_along_tail(a, b):
     # shortcut to mpi_helper.einsum('iakb,jakb->ij', a, b)
     a = a.reshape(a.shape[0], -1)
     b = b.reshape(b.shape[0], -1)
     return mpi_helper.dot(a, b.T)
+
 
 def dot_along_tail2(a, b):
     # shortcut to mpi_helper.einsum('iakc,jbkc->iajb', a, b)
@@ -25,9 +29,9 @@ def dot_along_tail2(a, b):
     b = b.reshape(b.shape[0]*b.shape[1], -1)
     return mpi_helper.dot(a, b.T).reshape(shape)
 
+
 def get_1h(helper):
     t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
-    nocc, nvir = helper.nocc, helper.nvir
     sign = helper.sign
     t2a = as1(t2)
     t2_2_a = as1(t2_2)
@@ -73,7 +77,7 @@ def get_1h(helper):
 
     tmp1  = utils.einsum('iakc,iakb->bc', t2a, t2a)
     tmp1 += utils.einsum('iakc,iakb->bc', t2, t2) * 2.0
-    h1 += utils.einsum('jibc,bc->ij', oovv, tmp1) * sign 
+    h1 += utils.einsum('jibc,bc->ij', oovv, tmp1) * sign
     h1 -= utils.einsum('jcib,bc->ij', ovov, tmp1) * sign * 0.5
 
     tmp1 = utils.einsum('jalc,kblc->jakb', as2(t2), ovov)
@@ -101,7 +105,6 @@ def get_matvec(helper):
         ri = r[:nocc]
         yija = y[nocc:].reshape(nocc, nocc, nvir)
         rija = r[nocc:].reshape(nocc, nocc, nvir)
-        yija_as = as1(yija, (0,1))
 
         ri   += np.dot(h1, yi)
 
@@ -158,7 +161,7 @@ def get_matvec(helper):
 
 def get_moments(helper, nmax):
     t1_2, t2, t2_2, ovov, ooov, oooo, oovv, ovvv, vvvv, eija = helper.unpack()
-    nocc, nvir = helper.nocc, helper.nvir
+    nocc = helper.nocc
     sign = helper.sign
     t2a = as2(t2)
 

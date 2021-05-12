@@ -4,7 +4,7 @@ ADC(2) for ionization potentials for restriced periodic (k-space) references.
 
 import numpy as np
 import itertools
-from adc import utils, mpi_helper, ip_radc2
+from adc import mpi_helper, ip_radc2
 from pyscf import lib
 from pyscf.pbc import tools
 from pyscf.pbc.mp.kmp2 import _padding_k_idx
@@ -14,8 +14,7 @@ from pyscf.pbc.mp.kmp2 import _padding_k_idx
 
 def get_1h(helper, ki):
     t2, ovov, ooov, eija = helper.unpack()
-    nocc, nvir = max(helper.nocc), max(helper.nvir)
-    nkpts = helper.nkpts
+    nocc = max(helper.nocc)
 
     h1 = np.zeros((nocc, nocc), dtype=helper.dtype)
 
@@ -34,9 +33,10 @@ def get_1h(helper, ki):
 
     return h1
 
+
 def get_matvec(helper, ki):
     t2, ovov, ooov, eija = helper.unpack()
-    nocc, nvir = max(helper.nocc), max(helper.nvir)
+    nocc = max(helper.nocc)
     nkpts = helper.nkpts
 
     h1 = get_1h(helper, ki)
@@ -52,7 +52,7 @@ def get_matvec(helper, ki):
 
         for kj, kk in mpi_helper.distr_iter(helper.kpt_loop(2)):
             kl = helper.kconserv[ki,kj,kk]
-            vk = 2.0 * ooov[ki,kj,kk] - ooov[ki,kk,kj].swapaxes(1,2) # correct?
+            vk = 2.0 * ooov[ki,kj,kk] - ooov[ki,kk,kj].swapaxes(1,2)
             vk = vk.reshape(nocc, -1)
             ri += np.dot(ooov[ki,kj,kk].reshape(nocc, -1), yija[kj,kk])
             rija[kj,kk] += np.dot(yi, vk.conj())
@@ -70,6 +70,7 @@ def get_matvec(helper, ki):
 
     return matvec, diag
 
+
 def get_guesses(helper, ki, diag, nroots, koopmans=False):
     guesses = np.zeros((nroots, diag.size), dtype=diag.dtype)
 
@@ -84,6 +85,7 @@ def get_guesses(helper, ki, diag, nroots, koopmans=False):
 
     return list(guesses)
 
+
 class ADCHelper(ip_radc2.ADCHelper):
     def build(self):
         nmo_per_kpt = [x.size for x in self.o]
@@ -93,7 +95,7 @@ class ADCHelper(ip_radc2.ADCHelper):
 
         self.opad, self.vpad = _padding_k_idx(nmo_per_kpt, nocc_per_kpt, kind='split')
         self.kconserv = tools.get_kconserv(self.mf.cell, self.mf.kpts)
-        dtype = np.complex128 #TODO
+        dtype = np.complex128  # TODO
 
         self.eo = [e[o] for e,o in zip(self.e, self.o)]
         self.ev = [e[v] for e,v in zip(self.e, self.v)]
@@ -142,8 +144,8 @@ class ADCHelper(ip_radc2.ADCHelper):
 
         for ki, kj, kk in mpi_helper.distr_iter(self.kpt_loop(3)):
             t2 = self.t2[ki,kj,kk]
-            e_mp2 += np.sum(self.t2 * self.ovov[ki,kj,kk].conj()) * 2.0
-            e_mp2 -= np.sum(self.t2 * self.ovov[kk,kj,ki].conj().swapaxes(0,2))
+            e_mp2 += np.sum(t2 * self.ovov[ki,kj,kk].conj()) * 2.0
+            e_mp2 -= np.sum(t2 * self.ovov[kk,kj,ki].conj().swapaxes(0,2))
 
         e_mp2 = e_mp2.real
 
@@ -155,6 +157,7 @@ class ADCHelper(ip_radc2.ADCHelper):
     @property
     def nkpts(self):
         return len(self.e)
+
     @property
     def dtype(self):
         return self.t2.dtype

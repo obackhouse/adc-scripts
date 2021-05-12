@@ -32,7 +32,6 @@ def get_matvec(helper):
     nocc, nvir = helper.nocc, helper.nvir
 
     p0, p1 = mpi_helper.distr_blocks(nocc*nvir**2)
-    t2_block = t2.reshape(nocc, -1)[:,p0:p1]
     ovov_as_block  = ovov.reshape(nocc, -1)[:,p0:p1] * 2.0
     ovov_as_block -= ovov.swapaxes(1,3).reshape(nocc, -1)[:,p0:p1]
 
@@ -72,6 +71,7 @@ def get_matvec(helper):
 
     return matvec, diag
 
+
 def get_guesses(helper, diag, nroots, koopmans=False):
     guesses = np.zeros((nroots, diag.size))
 
@@ -86,9 +86,10 @@ def get_guesses(helper, diag, nroots, koopmans=False):
 
     return list(guesses)
 
+
 def get_moments(helper, nmax):
     t2, ovov, ooov, eija = helper.unpack()
-    nocc, nvir = helper.nocc, helper.nvir
+    nocc = helper.nocc
 
     vl = 2.0 * ooov - ooov.swapaxes(1,2)
     vr = ooov
@@ -104,6 +105,7 @@ def get_moments(helper, nmax):
             vl *= eija.ravel()[None]
 
     return t
+
 
 class ADCHelper(utils._ADCHelper):
     def build(self):
