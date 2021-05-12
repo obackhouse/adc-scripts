@@ -44,7 +44,7 @@ def load_helper(mf, method='2', which='ip'):
 
 def run(mf, helper=None, method='2', which='ip', nroots=5, tol=1e-9,
         maxiter=100, maxspace=12, do_mp2=False, koopmans=False, verbose=False):
-    ''' Runs the ADC(2) method.
+    ''' Runs the ADC method.
 
     Arguments:
         mf : scf.HF
